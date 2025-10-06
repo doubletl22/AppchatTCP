@@ -1,0 +1,36 @@
+/* Dùng font hệ thống để có giao diện thân thiện */
+.root {
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+}
+
+/* Vùng hiển thị chat */
+.text-area {
+    background-color: #f4f4f4;
+    color: #333;
+    border-color: #ccc;
+    border-width: 1px;
+}
+
+.text-area .content {
+    background-color: #f4f4f4;
+}
+
+/* Ô nhập liệu */
+.text-field {
+    font-size: 14px;
+    border-radius: 5px;
+}
+
+/* Nút gửi */
+.button {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: hand;
+}
+
+.button:hover {
+    background-color: #0056b3;
+}
