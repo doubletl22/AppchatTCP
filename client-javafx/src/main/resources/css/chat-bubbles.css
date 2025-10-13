@@ -1,0 +1,29 @@
+.chat-bubble-container {
+    -fx-padding: 5px;
+    -fx-alignment: top-left;
+}
+
+.chat-bubble {
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 15px;
+    -fx-max-width: 70%;
+    -fx-wrap-text: true;
+}
+
+.chat-bubble-label {
+    -fx-text-fill: white;
+}
+
+.chat-bubble.self {
+    -fx-background-color: #0078FF; /* Blue for self */
+}
+
+.chat-bubble.other {
+    -fx-background-color: #555a5c; /* Gray for others */
+}
+
+.timestamp-label {
+    -fx-font-size: 0.8em;
+    -fx-text-fill: #a0a0a0;
+    -fx-padding: 0 5px;
+}
