@@ -43,8 +43,15 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
-    env_file:
-      - .env
+    # --- THAY THẾ HOÀN TOÀN BẰNG KHỐI NÀY ---
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=user
+      - DB_PASSWORD=123456
+      - DB_NAME=chatdb
+      - REDIS_HOST=redis
+      - JWT_SECRET=nekokiyoshi6922112005!@#$%^&*()_+
+    # ------------------------------------
     restart: unless-stopped
   
   # Optional: NGINX for reverse proxy and TLS termination
