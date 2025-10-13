@@ -1,106 +1,115 @@
-# Advanced Chat Application (Spring Boot + JavaFX)
+# Ứng dụng Chat Nâng cao (Spring Boot + JavaFX)
 
-This is a full-featured, scalable, real-time chat application built with a Spring Boot WebSocket server and a JavaFX client.
+Đây là một ứng dụng chat thời gian thực, đầy đủ tính năng, có khả năng mở rộng, được xây dựng với máy chủ Spring Boot WebSocket và client bằng JavaFX.
 
-## ✨ Features
+## ✨ Tính năng
 
-- **Real-time Messaging**: WebSocket-based communication.
-- **Scalable Architecture**: Uses Redis Pub/Sub to synchronize messages across multiple server instances.
-- **JWT Authentication**: Secure WebSocket and REST endpoints.
-- **Message Persistence**: Chat history saved to a PostgreSQL database.
-- **REST API**: For authentication and fetching message history with pagination.
-- **JavaFX Client**: Modern UI with FXML, dark theme, and chat bubbles.
-- **Containerized**: Fully containerized with Docker and Docker Compose for easy deployment.
-- **CI/CD Ready**: Includes a GitHub Actions workflow for building, testing, and pushing Docker images.
+  - **Nhắn tin thời gian thực**: Giao tiếp dựa trên WebSocket.
+  - **Kiến trúc có khả năng mở rộng**: Sử dụng Redis Pub/Sub để đồng bộ hóa tin nhắn trên nhiều phiên bản máy chủ.
+  - **Xác thực bằng JWT**: Bảo mật các endpoint của WebSocket và REST.
+  - **Lưu trữ tin nhắn bền vững**: Lịch sử trò chuyện được lưu vào cơ sở dữ liệu PostgreSQL.
+  - **REST API**: Dùng để xác thực và lấy lịch sử tin nhắn có phân trang.
+  - **Client bằng JavaFX**: Giao diện người dùng hiện đại với FXML, giao diện tối (dark theme), và bong bóng chat.
+  - **Được container hóa**: Hoàn toàn được container hóa với Docker và Docker Compose để dễ dàng triển khai.
+  - **Sẵn sàng cho CI/CD**: Bao gồm một quy trình làm việc (workflow) của GitHub Actions để build, test, và đẩy (push) các Docker image.
 
-## 🛠️ Prerequisites
+## 🛠️ Yêu cầu cần có
 
-- JDK 17 or newer
-- Apache Maven 3.8+
-- Docker & Docker Compose
-- An IDE like IntelliJ IDEA or VS Code
+  - JDK 17 hoặc mới hơn
+  - Apache Maven 3.8+
+  - Docker & Docker Compose
+  - Một IDE như IntelliJ IDEA hoặc VS Code
 
-## 🚀 Running Locally with Docker
+## 🚀 Chạy trên máy cục bộ với Docker
 
-This is the recommended way to run the entire stack.
+Đây là cách được khuyến nghị để chạy toàn bộ hệ thống.
 
-1.  **Clone the repository:**
+1.  **Sao chép (clone) repository:**
+
     ```bash
     git clone <your-repo-url>
     cd chat-advanced
     ```
 
-2.  **Create `.env` file:**
-    Copy the example file and customize if needed (the defaults work out-of-the-box with Docker Compose).
+2.  **Tạo file `.env`:**
+    Sao chép file mẫu và tùy chỉnh nếu cần (các giá trị mặc định hoạt động ngay lập tức với Docker Compose).
+
     ```bash
     cp .env.example .env
     ```
 
-3.  **Start the services:**
-    This command will build the server's Docker image and start the `chat-server`, `postgres`, and `redis` containers.
+3.  **Khởi động các dịch vụ:**
+    Lệnh này sẽ build Docker image của máy chủ và khởi động các container `chat-server`, `postgres`, và `redis`.
+
     ```bash
     docker compose up --build -d
     ```
-    To see logs: `docker compose logs -f chat-server`
 
-4.  **Run the JavaFX Client:**
-    - Open the `client-javafx` directory in your IDE.
-    - Run the `MainApp.java` class.
-    - To run a second client, simply run `MainApp.java` again.
+    Để xem log: `docker compose logs -f chat-server`
 
-## 🧪 How to Test
+4.  **Chạy Client JavaFX:**
 
-1.  Run two instances of the JavaFX client.
-2.  In the first window, log in with username `alice`.
-3.  In the second window, log in with username `bob`.
-4.  Send messages from `alice`. They should appear instantly in `bob`'s window, and vice-versa.
-5.  Try the `/clear` command in one client to clear its local view.
+      - Mở thư mục `client-javafx` trong IDE của bạn.
+      - Chạy lớp `MainApp.java`.
+      - Để chạy một client thứ hai, chỉ cần chạy lại `MainApp.java` một lần nữa.
 
-## 🔐 Enabling TLS with NGINX
+## 🧪 Cách kiểm tra
 
-The `docker-compose.yml` includes a commented-out `nginx` service. To enable it:
+1.  Chạy hai phiên bản của client JavaFX.
+2.  Trong cửa sổ đầu tiên, đăng nhập với tên người dùng `alice`.
+3.  Trong cửa sổ thứ hai, đăng nhập với tên người dùng `bob`.
+4.  Gửi tin nhắn từ `alice`. Chúng sẽ xuất hiện ngay lập tức trong cửa sổ của `bob`, và ngược lại.
+5.  Thử lệnh `/clear` trong một client để xóa giao diện hiển thị cục bộ của nó.
 
-1.  Create a `./nginx/nginx.conf` file with a configuration to reverse proxy to `chat-server:8080`.
-2.  Uncomment the `nginx` service in `docker-compose.yml`.
-3.  Use **Certbot** on your host machine to obtain SSL certificates:
+## 🔐 Kích hoạt TLS với NGINX
+
+File `docker-compose.yml` có bao gồm một dịch vụ `nginx` đã được bình luận (commented-out). Để kích hoạt nó:
+
+1.  Tạo một file `./nginx/nginx.conf` với cấu hình để làm reverse proxy đến `chat-server:8080`.
+2.  Bỏ bình luận (uncomment) dịch vụ `nginx` trong `docker-compose.yml`.
+3.  Sử dụng **Certbot** trên máy chủ của bạn để lấy chứng chỉ SSL:
     ```bash
     sudo certbot certonly --standalone -d your.domain.com
     ```
-4.  Update the volume paths in the `nginx` service to point to your live Let's Encrypt certificates (`/etc/letsencrypt/live/your.domain.com`).
-5.  Your `nginx.conf` should listen on port 443 (SSL) and proxy WebSocket connections (`/chat`) with appropriate headers (`Upgrade`, `Connection`).
-6.  Restart docker compose: `docker compose up -d --build nginx`.
-7.  Update the `SERVER_URL` in the JavaFX client's `AuthService.java` to use `wss://your.domain.com`.
+4.  Cập nhật các đường dẫn volume trong dịch vụ `nginx` để trỏ đến các chứng chỉ Let's Encrypt đang hoạt động của bạn (`/etc/letsencrypt/live/your.domain.com`).
+5.  File `nginx.conf` của bạn nên lắng nghe trên cổng 443 (SSL) và proxy các kết nối WebSocket (`/chat`) với các header phù hợp (`Upgrade`, `Connection`).
+6.  Khởi động lại docker compose: `docker compose up -d --build nginx`.
+7.  Cập nhật `SERVER_URL` trong file `AuthService.java` của client JavaFX để sử dụng `wss://your.domain.com`.
 
----
+-----
 
-### CHECKLIST & Quick Tests
+### DANH SÁCH KIỂM TRA & Kiểm tra nhanh
 
-Here's how to quickly verify the server is running correctly after `docker compose up`.
+Đây là cách để xác minh nhanh rằng máy chủ đang chạy đúng cách sau khi chạy `docker compose up`.
 
-1.  **Check Health Endpoint:**
+1.  **Kiểm tra Health Endpoint:**
+
     ```bash
     curl http://localhost:8080/api/health
-    # Expected output: {"status":"UP"}
+    # Kết quả mong đợi: {"status":"UP"}
     ```
 
-2.  **Test Login API:**
+2.  **Kiểm tra API Đăng nhập:**
+
     ```bash
     curl -X POST -H "Content-Type: application/json" \
          -d '{"username":"alice", "password":"password123"}' \
          http://localhost:8080/api/auth/login
-    # Expected output: {"token":"ey..."}
+    # Kết quả mong đợi: {"token":"ey..."}
     ```
 
-3.  **Test Message History API (with a valid token):**
-    First, get a token from the step above.
+3.  **Kiểm tra API Lịch sử tin nhắn (với token hợp lệ):**
+    Đầu tiên, lấy một token từ bước trên.
+
     ```bash
     TOKEN="your_jwt_token_here"
     curl -H "Authorization: Bearer ${TOKEN}" \
          "http://localhost:8080/api/messages?room=global&page=0&size=20"
-    # Expected output: JSON array of messages, or an empty array if none.
+    # Kết quả mong đợi: một mảng JSON chứa các tin nhắn, hoặc một mảng rỗng nếu chưa có.
     ```
 
-4.  **Run Two JavaFX Clients:**
-    - Follow step 4 in the "Running Locally" section.
-    - Log in as `alice` and `bob`.
-    - Verify that messages sent from one client appear on the other. This confirms the entire loop: `Client -> Server -> Redis -> Server -> Client`.
+4.  **Chạy hai Client JavaFX:**
+
+      - Làm theo bước 4 trong phần "Chạy trên máy cục bộ".
+      - Đăng nhập với tư cách `alice` và `bob`.
+      - Xác minh rằng tin nhắn được gửi từ một client sẽ xuất hiện trên client còn lại. Điều này xác nhận toàn bộ vòng lặp: `Client -> Server -> Redis -> Server -> Client`.
