@@ -5,9 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.Instant;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Data // <-- Tự động tạo getters, setters, toString, equals, hashCode
+@NoArgsConstructor // <-- Tự động tạo constructor không tham số
+@AllArgsConstructor // <-- Tự động tạo constructor với tất cả tham số
 public class ChatMessage {
     private MessageType type;
     private String from;

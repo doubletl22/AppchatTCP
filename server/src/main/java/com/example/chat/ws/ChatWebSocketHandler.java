@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-@Slf4j
+@Slf4j 
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     public static final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
