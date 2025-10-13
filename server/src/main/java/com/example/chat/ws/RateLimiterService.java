@@ -1,6 +1,5 @@
 package com.example.chat.ws;
 
-import com.google.common.util.concurrent.RateLimiter; // Cần thêm dependency nếu chưa có
 import org.springframework.stereotype.Service;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
