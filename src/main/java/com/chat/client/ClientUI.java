@@ -1,4 +1,3 @@
-
 package com.chat.client;
 
 import com.chat.Message;
@@ -15,7 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ClientUI extends JFrame {
-    private final JTextField nameField = new JTextField("User");
+    // private final JTextField nameField = new JTextField("User"); // REMOVED
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
     private final JButton connectBtn = new JButton("Connect");
@@ -24,8 +23,11 @@ public class ClientUI extends JFrame {
     private final JTextArea chatArea = new JTextArea();
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton("Send");
+    private final JLabel statusLabel = new JLabel("Status: Disconnected"); // NEW: For displaying connected user
 
     private volatile boolean connected = false;
+    private volatile boolean authenticated = false; // NEW: Authentication state
+    private String userName = "User"; // NEW: Store authenticated username
     private Socket socket;
     private BufferedReader reader;
     private BufferedOutputStream out;
@@ -43,9 +45,7 @@ public class ClientUI extends JFrame {
         setContentPane(root);
 
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-        top.add(new JLabel("Name:"));
-        nameField.setColumns(10);
-        top.add(nameField);
+        top.add(statusLabel); // NEW: Status label
         top.add(new JLabel("Host:"));
         hostField.setColumns(12);
         top.add(hostField);
@@ -78,10 +78,77 @@ public class ClientUI extends JFrame {
         });
     }
 
+    // NEW: Login/Register Dialog
+    private class LoginDialog extends JDialog {
+        private final JTextField usernameField = new JTextField(15);
+        private final JPasswordField passwordField = new JPasswordField(15);
+        private boolean cancelled = true;
+        private String username;
+        private String password;
+        private String action; // "login" or "register"
+
+        public LoginDialog(JFrame parent) {
+            super(parent, "Login or Register", true);
+            setLayout(new GridLayout(4, 2, 5, 5));
+            ((JPanel)getContentPane()).setBorder(new EmptyBorder(10, 10, 10, 10));
+
+            add(new JLabel("Username:"));
+            add(usernameField);
+            add(new JLabel("Password:"));
+            add(passwordField);
+
+            JButton loginBtn = new JButton("Login");
+            JButton registerBtn = new JButton("Register");
+
+            loginBtn.addActionListener(e -> {
+                username = usernameField.getText();
+                password = new String(passwordField.getPassword());
+                action = "login";
+                cancelled = false;
+                setVisible(false);
+            });
+
+            registerBtn.addActionListener(e -> {
+                username = usernameField.getText();
+                password = new String(passwordField.getPassword());
+                action = "register";
+                cancelled = false;
+                setVisible(false);
+            });
+
+            add(loginBtn);
+            add(registerBtn);
+
+            pack();
+            setLocationRelativeTo(parent);
+            setResizable(false);
+        }
+
+        public boolean isCancelled() { return cancelled; }
+        public String getUsername() { return username; }
+        public String getPassword() { return password; }
+        public String getAction() { return action; }
+    }
+
+
     private void connectAction(ActionEvent e) {
         if (connected) return;
-        String name = nameField.getText().trim();
-        if (name.isEmpty()) name = "User";
+
+        // 1. Show Login/Register Dialog
+        LoginDialog dialog = new LoginDialog(this);
+        dialog.setVisible(true);
+
+        if (dialog.isCancelled()) return;
+
+        final String username = dialog.getUsername().trim();
+        final String password = dialog.getPassword().trim();
+        final String action = dialog.getAction();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Username and Password cannot be empty", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         String host = hostField.getText().trim();
         int port;
         try {
@@ -96,8 +163,13 @@ public class ClientUI extends JFrame {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             out = new BufferedOutputStream(socket.getOutputStream());
 
-            String hello = new Gson().toJson(Message.hello(name)) + "\n";
-            out.write(hello.getBytes(StandardCharsets.UTF_8));
+            // 2. Send Login or Register message
+            Message authMsg = "login".equals(action)
+                    ? Message.login(username, password)
+                    : Message.register(username, password);
+
+            String json = gson.toJson(authMsg) + "\n";
+            out.write(json.getBytes(StandardCharsets.UTF_8));
             out.flush();
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Cannot connect: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -107,8 +179,8 @@ public class ClientUI extends JFrame {
         connected = true;
         connectBtn.setEnabled(false);
         disconnectBtn.setEnabled(true);
-        sendBtn.setEnabled(true);
-        appendChat("Connected.");
+        statusLabel.setText("Status: Connecting..."); // MODIFIED
+        appendChat("Attempting to connect and authenticate...");
 
         recvThread = new Thread(this::recvLoop, "recv-loop");
         recvThread.setDaemon(true);
@@ -118,11 +190,14 @@ public class ClientUI extends JFrame {
     private void disconnectAction(ActionEvent e) {
         if (!connected) return;
         connected = false;
+        authenticated = false;
+        userName = "User";
         try { socket.close(); } catch (Exception ignored) {}
         socket = null;
         connectBtn.setEnabled(true);
         disconnectBtn.setEnabled(false);
         sendBtn.setEnabled(false);
+        statusLabel.setText("Status: Disconnected"); // NEW
         appendChat("Disconnected.");
     }
 
@@ -132,10 +207,31 @@ public class ClientUI extends JFrame {
             while (connected && (line = reader.readLine()) != null) {
                 try {
                     Message m = gson.fromJson(line, Message.class);
-                    if ("chat".equals(m.type)) {
-                        appendChat(m.name + ": " + m.text);
-                    } else if ("system".equals(m.type)) {
-                        appendChat(m.text);
+                    if (m == null) continue;
+
+                    if ("auth_success".equals(m.type)) {
+                        authenticated = true;
+                        userName = m.name;
+                        SwingUtilities.invokeLater(() -> {
+                            statusLabel.setText("Status: Logged in as " + userName);
+                            sendBtn.setEnabled(true);
+                        });
+                        appendChat("Authentication successful. Welcome, " + userName + "!");
+                    } else if ("auth_failure".equals(m.type)) {
+                        appendChat("[AUTH FAILED] " + m.text);
+                        // Force disconnect on auth failure
+                        disconnectAction(null);
+                        return; // Stop recvLoop
+                    } else if ("history".equals(m.type)) { // NEW: Display chat history
+                        // History messages are displayed with a special tag
+                        appendChat("[HISTORY] " + m.name + ": " + m.text);
+                    } else if (authenticated) {
+                        // Only process chat/system messages if authenticated
+                        if ("chat".equals(m.type)) {
+                            appendChat(m.name + ": " + m.text);
+                        } else if ("system".equals(m.type)) {
+                            appendChat(m.text);
+                        }
                     }
                 } catch (Exception ignore) {}
             }
@@ -143,22 +239,18 @@ public class ClientUI extends JFrame {
         } finally {
             if (connected) {
                 appendChat("Connection lost.");
-                connected = false;
-                SwingUtilities.invokeLater(() -> {
-                    connectBtn.setEnabled(true);
-                    disconnectBtn.setEnabled(false);
-                    sendBtn.setEnabled(false);
-                });
+                SwingUtilities.invokeLater(() -> disconnectAction(null));
             }
         }
     }
 
     private void sendAction(ActionEvent e) {
-        if (!connected || out == null) return;
+        if (!connected || !authenticated || out == null) return; // Must be authenticated
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
         try {
+            // Client still sends the simple chat message
             String json = gson.toJson(Message.chat(text)) + "\n";
             out.write(json.getBytes(StandardCharsets.UTF_8));
             out.flush();
