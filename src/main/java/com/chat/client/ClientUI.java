@@ -357,16 +357,7 @@ public class ClientUI extends JFrame {
                     } else if ("dm".equals(m.type) && authenticated) {
                         String senderOrRecipient = m.name.startsWith("[TO ") ? m.targetName : m.name;
 
-                        // Chỉ hiển thị DM nếu đang xem đúng cuộc trò chuyện
-                        if (currentRecipient.equals(senderOrRecipient)) {
-                            if (m.name.startsWith("[TO ")) {
-                                appendChat("[DM SENT to " + m.targetName + "] " + m.text);
-                            } else {
-                                appendChat("[DM RECEIVED from " + m.name + "] " + m.text);
-                            }
-                        } else {
-                            // TODO: Thêm logic thông báo tin nhắn mới ở đây
-                        }
+
                     } else if (authenticated) {
                         if ("chat".equals(m.type)) {
                             // Chỉ hiển thị tin nhắn công cộng nếu Public Chat đang được chọn
