@@ -1,7 +1,6 @@
 package com.chat.client;
 
 import com.chat.Message;
-import com.google.gson.Gson;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,47 +9,44 @@ import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.*;
-import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.ArrayList;
 import java.util.List;
 
-public class ClientUI extends JFrame {
+// Import ChatClientCore và ClientStatusListener (Giả định nằm trong cùng package)
+
+public class ClientUI extends JFrame implements ClientStatusListener {
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
     private final JButton connectBtn = new JButton("Kết nối");
     private final JButton disconnectBtn = new JButton("Ngắt kết nối");
     private final JLabel statusLabel = new JLabel("Trạng thái: Ngắt kết nối");
 
-    // NEW UI COMPONENTS for Zalo-like layout
-    private final DefaultListModel<String> conversationListModel = new DefaultListModel<>(); // Danh sách trò chuyện
+    private final DefaultListModel<String> conversationListModel = new DefaultListModel<>();
     private final JList<String> conversationList = new JList<>(conversationListModel);
 
-    // Main Chat Panel components
     private final JTextArea chatArea = new JTextArea();
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton("Gửi");
-    private final JLabel chatHeaderLabel = new JLabel("Public Chat", SwingConstants.CENTER); // Hiển thị tên người/nhóm đang chat
+    private final JLabel chatHeaderLabel = new JLabel("Public Chat", SwingConstants.CENTER);
 
-    private volatile boolean connected = false;
-    private volatile boolean authenticated = false;
     private String userName = "User";
-    private final List<String> currentUsers = new ArrayList<>(); // To track all connected users for the list
-    private String currentRecipient = "Public Chat"; // The active conversation recipient
+    private String currentRecipient = "Public Chat";
+    private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
 
-    private Socket socket;
-    private BufferedReader reader;
-    private BufferedOutputStream out;
-    private Thread recvThread;
-    private final Gson gson = new Gson();
+    // Core/Service Layer Instance
+    private final ChatClientCore clientCore;
 
     public ClientUI() {
         super("Chat Client ");
+        // Initialize Core Layer, passing self as the listener
+        this.clientCore = new ChatClientCore(this);
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1000, 650); // Mở rộng kích thước
+        setSize(1000, 650);
         setLocationRelativeTo(null);
+
+        // ... (UI setup code)
 
         // --- TOP PANEL (Connection & Status) ---
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
@@ -70,7 +66,7 @@ public class ClientUI extends JFrame {
 
         // --- MAIN CONTENT AREA (JSplitPane) ---
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        mainSplit.setDividerLocation(250); // Chiều rộng cho danh sách trò chuyện
+        mainSplit.setDividerLocation(250);
         mainSplit.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         // 1. LEFT PANEL (User/Conversation List)
@@ -80,7 +76,6 @@ public class ClientUI extends JFrame {
         conversationList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         conversationList.setSelectedIndex(0);
 
-        // Listener để chuyển đổi cuộc trò chuyện khi click
         conversationList.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -97,16 +92,13 @@ public class ClientUI extends JFrame {
         // 2. RIGHT PANEL (Active Chat)
         JPanel chatPanel = new JPanel(new BorderLayout(5, 5));
 
-        // Chat Header
         chatHeaderLabel.setFont(chatHeaderLabel.getFont().deriveFont(Font.BOLD, 14f));
         chatPanel.add(chatHeaderLabel, BorderLayout.NORTH);
 
-        // Chat Area
         chatArea.setEditable(false);
         JScrollPane chatScroll = new JScrollPane(chatArea);
         chatPanel.add(chatScroll, BorderLayout.CENTER);
 
-        // Input Panel
         JPanel bottomInput = new JPanel(new BorderLayout(5, 5));
         inputField.addActionListener(e -> sendAction(null));
         sendBtn.addActionListener(this::sendAction);
@@ -123,11 +115,9 @@ public class ClientUI extends JFrame {
         root.add(mainSplit, BorderLayout.CENTER);
         setContentPane(root);
 
-        // Khởi tạo danh sách mặc định
         conversationListModel.addElement("Public Chat");
     }
 
-    // Xử lý chuyển đổi người nhận
     private void changeRecipient() {
         String selected = conversationList.getSelectedValue();
         if (selected == null || selected.equals(currentRecipient)) return;
@@ -135,7 +125,6 @@ public class ClientUI extends JFrame {
         currentRecipient = selected;
         chatHeaderLabel.setText(currentRecipient);
 
-        // Xóa màn hình chat cũ (Trong ứng dụng thực tế, bạn sẽ tải lịch sử chat ở đây)
         chatArea.setText("");
         if (currentRecipient.equals("Public Chat")) {
             appendChat("--- Chuyển sang Public Chat (Lịch sử đoạn chat không hiển thị) ---");
@@ -144,52 +133,14 @@ public class ClientUI extends JFrame {
         }
     }
 
-    // Cập nhật danh sách người dùng trong JList
-    private void updateUserList(String name, boolean isJoining) {
-        SwingUtilities.invokeLater(() -> {
-            // Xử lý list of all connected users (currentUsers)
-            if (isJoining && !currentUsers.contains(name)) {
-                currentUsers.add(name);
-            } else if (!isJoining) {
-                currentUsers.remove(name);
-            }
-
-            // Cập nhật JList Model
-            conversationListModel.clear();
-            conversationListModel.addElement("Public Chat"); // Luôn có chat chung
-
-            // Lọc ra chính mình và thêm vào list
-            currentUsers.stream()
-                    .sorted()
-                    .filter(n -> !n.equals(userName))
-                    .forEach(conversationListModel::addElement);
-
-            // Duy trì lựa chọn hiện tại hoặc chuyển về Public Chat nếu người đang chat bị ngắt kết nối
-            if (currentRecipient.equals("Public Chat")) {
-                conversationList.setSelectedIndex(0);
-            } else {
-                int index = conversationListModel.indexOf(currentRecipient);
-                if (index >= 0) {
-                    conversationList.setSelectedIndex(index);
-                } else {
-                    currentRecipient = "Public Chat";
-                    conversationList.setSelectedIndex(0);
-                    chatHeaderLabel.setText("Public Chat");
-                    chatArea.setText("");
-                    appendChat("---" + currentRecipient + "đã mất kết nổi, chuyển sang public chat! ---");
-                }
-            }
-        });
-    }
-
     private void appendChat(String s) {
         SwingUtilities.invokeLater(() -> {
-            chatArea.append("[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + s + "\n");
+            chatArea.append("[" + timeFormat.format(new Date()) + "] " + s + "\n");
             chatArea.setCaretPosition(chatArea.getDocument().getLength());
         });
     }
 
-    // LoginDialog class (Giữ nguyên)
+    // LoginDialog class (remains the same)
     private class LoginDialog extends JDialog {
         private final JTextField usernameField = new JTextField(15);
         private final JPasswordField passwordField = new JPasswordField(15);
@@ -243,7 +194,7 @@ public class ClientUI extends JFrame {
 
 
     private void connectAction(ActionEvent e) {
-        if (connected) return;
+        if (clientCore.isConnected()) return;
 
         LoginDialog dialog = new LoginDialog(this);
         dialog.setVisible(true);
@@ -269,128 +220,28 @@ public class ClientUI extends JFrame {
         }
 
         chatArea.setText("");
-
-        try {
-            socket = new Socket(host, port);
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-            out = new BufferedOutputStream(socket.getOutputStream());
-
-            Message authMsg = "login".equals(action)
-                    ? com.chat.Message.login(username, password)
-                    : com.chat.Message.register(username, password);
-
-            String json = gson.toJson(authMsg) + "\n";
-            out.write(json.getBytes(StandardCharsets.UTF_8));
-            out.flush();
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this, "Cannot connect: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        connected = true;
-        connectBtn.setEnabled(false);
-        disconnectBtn.setEnabled(true);
         statusLabel.setText("Status: Connecting...");
         appendChat("Attempting to connect and authenticate...");
 
-        recvThread = new Thread(this::recvLoop, "recv-loop");
-        recvThread.setDaemon(true);
-        recvThread.start();
-    }
-
-    private void disconnectAction(ActionEvent e) {
-        if (!connected) return;
-        connected = false;
-        authenticated = false;
-        userName = "User";
-        currentUsers.clear();
-        currentRecipient = "Public Chat";
-        try { socket.close(); } catch (Exception ignored) {}
-        socket = null;
-        connectBtn.setEnabled(true);
-        disconnectBtn.setEnabled(false);
-        sendBtn.setEnabled(false);
-        statusLabel.setText("Status: Disconnected");
-        chatHeaderLabel.setText("Public Chat");
-        chatArea.setText("");
-        conversationListModel.clear();
-        conversationListModel.addElement("Public Chat");
-        conversationList.setSelectedIndex(0);
-        appendChat("Disconnected.");
-    }
-
-    private void recvLoop() {
         try {
-            String line;
-            while (connected && (line = reader.readLine()) != null) {
-                try {
-                    Message m = gson.fromJson(line, Message.class);
-                    if (m == null) continue;
-
-                    if ("auth_success".equals(m.type)) {
-                        authenticated = true;
-                        userName = m.name;
-                        currentUsers.add(userName);
-                        SwingUtilities.invokeLater(() -> {
-                            statusLabel.setText("Status: Logged in as " + userName);
-                            sendBtn.setEnabled(true);
-                            updateUserList(null, false);
-                        });
-                        appendChat("Authentication successful. Welcome, " + userName + "!");
-                    } else if ("auth_failure".equals(m.type)) {
-                        appendChat("[AUTH FAILED] " + m.text);
-                        disconnectAction(null);
-                        return;
-                    } else if ("user_list".equals(m.type) && m.users != null) {
-                        SwingUtilities.invokeLater(() -> {
-                            currentUsers.clear();
-                            currentUsers.add(userName); // Thêm tên của chính mình
-                            currentUsers.addAll(m.users); // Thêm danh sách người dùng cũ
-                            updateUserList(null, false); // Cập nhật JList
-                            appendChat("User list synchronized.");
-                        });
-                    } else if ("history".equals(m.type)) {
-                        // Chỉ hiển thị lịch sử nếu đang xem Public Chat
-                        if (currentRecipient.equals("Public Chat")) {
-                            appendChat("[HISTORY] " + m.name + ": " + m.text);
-                        }
-                    } else if ("dm".equals(m.type) && authenticated) {
-                        String senderOrRecipient = m.name.startsWith("[TO ") ? m.targetName : m.name;
-
-
-                    } else if (authenticated) {
-                        if ("chat".equals(m.type)) {
-                            // Chỉ hiển thị tin nhắn công cộng nếu Public Chat đang được chọn
-                            if (currentRecipient.equals("Public Chat")) {
-                                appendChat(m.name + ": " + m.text);
-                            }
-                        } else if ("system".equals(m.type)) {
-                            appendChat(m.text);
-
-                            // Cập nhật danh sách người dùng khi có sự kiện tham gia/rời đi
-                            if (m.text.endsWith(" joined the chat.")) {
-                                String name = m.text.substring(0, m.text.indexOf(" joined the chat."));
-                                updateUserList(name, true);
-                            } else if (m.text.endsWith(" left the chat.") || m.text.endsWith(" was kicked by server.")) {
-                                String name = m.text.substring(0, m.text.indexOf(" left the chat."));
-                                if (name.equals(m.text)) name = m.text.substring(0, m.text.indexOf(" was kicked by server."));
-                                updateUserList(name, false);
-                            }
-                        }
-                    }
-                } catch (Exception ignore) {}
-            }
-        } catch (IOException ignore) {
-        } finally {
-            if (connected) {
-                appendChat("Connection lost.");
-                SwingUtilities.invokeLater(() -> disconnectAction(null));
-            }
+            // DELEGATE to Core Layer
+            clientCore.connectAndAuth(host, port, username, password, action);
+            connectBtn.setEnabled(false);
+            disconnectBtn.setEnabled(true);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Cannot connect: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            connectBtn.setEnabled(true);
+            disconnectBtn.setEnabled(false);
         }
     }
 
+    private void disconnectAction(ActionEvent e) {
+        // DELEGATE to Core Layer
+        clientCore.disconnect("User initiated disconnect.");
+    }
+
     private void sendAction(ActionEvent e) {
-        if (!connected || !authenticated || out == null) return;
+        if (!clientCore.isAuthenticated()) return;
         String text = inputField.getText().trim();
         if (text.isEmpty()) return;
         inputField.setText("");
@@ -398,34 +249,112 @@ public class ClientUI extends JFrame {
         String recipient = currentRecipient;
 
         try {
-            Message msgToSend;
-            if ("Public Chat".equals(recipient)) {
-                msgToSend = com.chat.Message.chat(text);
-                // Hiển thị ngay tin nhắn chat công cộng
-                if (currentRecipient.equals("Public Chat")) {
-                    appendChat(userName + ": " + text);
-                }
-            } else {
-                msgToSend = com.chat.Message.direct(recipient, text);
-                if (currentRecipient.equals(recipient)) {
-                    appendChat("Tin nhắn gửi tới " + recipient + "] " + text);
-                }
-            }
+            // DELEGATE to Core Layer
+            clientCore.sendMessage(text, recipient);
 
-            String json = gson.toJson(msgToSend) + "\n";
-            out.write(json.getBytes(StandardCharsets.UTF_8));
-            out.flush();
+            // UI Update: Local echo
+            if ("Public Chat".equals(recipient) && currentRecipient.equals(recipient)) {
+                appendChat(userName + ": " + text);
+            } else if (currentRecipient.equals(recipient)) {
+                appendChat("Tin nhắn gửi tới " + recipient + "] " + text);
+            }
 
         } catch (IOException ex) {
             appendChat("[ERROR] " + ex.getMessage());
-            disconnectAction(null);
+            clientCore.disconnect(null);
         }
     }
 
+    // --- IMPLEMENTATION OF ClientStatusListener (Receives events from Core Layer) ---
+    @Override
+    public void onConnectSuccess(String userName) {
+        SwingUtilities.invokeLater(() -> {
+            this.userName = userName;
+            statusLabel.setText("Status: Logged in as " + userName);
+            sendBtn.setEnabled(true);
+        });
+        appendChat("Authentication successful. Welcome, " + userName + "!");
+    }
+
+    @Override
+    public void onDisconnect(String reason) {
+        SwingUtilities.invokeLater(() -> {
+            connectBtn.setEnabled(true);
+            disconnectBtn.setEnabled(false);
+            sendBtn.setEnabled(false);
+            statusLabel.setText("Status: Disconnected");
+            chatHeaderLabel.setText("Public Chat");
+            chatArea.setText("");
+            currentRecipient = "Public Chat";
+            conversationListModel.clear();
+            conversationListModel.addElement("Public Chat");
+            conversationList.setSelectedIndex(0);
+            appendChat("Disconnected. Reason: " + (reason != null && !reason.isEmpty() ? reason : "Unknown."));
+        });
+    }
+
+    @Override
+    public void onAuthFailure(String reason) {
+        appendChat("[AUTH FAILED] " + reason);
+    }
+
+    @Override
+    public void onSystemMessage(String text) {
+        appendChat(text);
+    }
+
+    @Override
+    public void onMessageReceived(Message m) {
+        if ("chat".equals(m.type)) {
+            if (currentRecipient.equals("Public Chat")) {
+                appendChat(m.name + ": " + m.text);
+            }
+        } else if ("history".equals(m.type)) {
+            if (currentRecipient.equals("Public Chat")) {
+                appendChat("[HISTORY] " + m.name + ": " + m.text);
+            }
+        } else if ("dm".equals(m.type)) {
+            String conversationPartner = m.name.startsWith("[TO ") ? m.targetName : m.name;
+
+            if (currentRecipient.equals(conversationPartner)) {
+                if (m.name.startsWith("[TO ")) {
+                    appendChat("Tin nhắn đã gửi tới " + m.targetName + "] " + m.text);
+                } else {
+                    appendChat("[DM từ " + m.name + "] " + m.text);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onUserListUpdate(List<String> userNames, String selfName) {
+        SwingUtilities.invokeLater(() -> {
+            conversationListModel.clear();
+            conversationListModel.addElement("Public Chat");
+
+            userNames.forEach(conversationListModel::addElement);
+
+            if (currentRecipient.equals("Public Chat")) {
+                conversationList.setSelectedIndex(0);
+            } else {
+                int index = conversationListModel.indexOf(currentRecipient);
+                if (index >= 0) {
+                    conversationList.setSelectedIndex(index);
+                } else {
+                    currentRecipient = "Public Chat";
+                    conversationList.setSelectedIndex(0);
+                    chatHeaderLabel.setText("Public Chat");
+                    chatArea.setText("");
+                    appendChat("--- Người dùng bạn đang chat trực tiếp đã ngắt kết nối, chuyển sang public chat! ---");
+                }
+            }
+            appendChat("User list synchronized.");
+        });
+    }
+
+
     public static void main(String[] args) {
-        // FlatLaf setup for modern look
         try {
-            // Thiết lập FlatLightLaf
             UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
         } catch (Exception ex) {
             System.err.println("Failed to initialize FlatLaf: " + ex);
