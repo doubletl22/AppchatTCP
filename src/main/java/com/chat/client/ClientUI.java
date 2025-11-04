@@ -341,6 +341,14 @@ public class ClientUI extends JFrame {
                         appendChat("[AUTH FAILED] " + m.text);
                         disconnectAction(null);
                         return;
+                    } else if ("user_list".equals(m.type) && m.users != null) {
+                        SwingUtilities.invokeLater(() -> {
+                            currentUsers.clear();
+                            currentUsers.add(userName); // Thêm tên của chính mình
+                            currentUsers.addAll(m.users); // Thêm danh sách người dùng cũ
+                            updateUserList(null, false); // Cập nhật JList
+                            appendChat("User list synchronized.");
+                        });
                     } else if ("history".equals(m.type)) {
                         // Chỉ hiển thị lịch sử nếu đang xem Public Chat
                         if (currentRecipient.equals("Public Chat")) {

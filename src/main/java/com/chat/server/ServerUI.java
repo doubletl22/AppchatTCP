@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class ServerUI extends JFrame {
     // private final JTextField hostField = new JTextField("0.0.0.0"); // REMOVED
@@ -298,6 +299,15 @@ public class ServerUI extends JFrame {
 
                             clients.add(this);
                             refreshClientList();
+
+                            List<String> currentNames = clients.stream()
+                                    .map(c -> c.name)
+                                    .filter(n -> !n.equals(name))
+                                    .collect(Collectors.toList());
+                            sendToClient(this, Message.userlist(currentNames));
+
+
+
                             broadcast(Message.system(name + " joined the chat."));
                             break; // Exit authentication loop
                         } else {

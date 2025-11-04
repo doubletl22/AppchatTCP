@@ -1,5 +1,7 @@
 package com.chat;
 
+import java.util.List;
+
 public class Message {
     // NEW types: "register", "login", "auth_success", "auth_failure", "history"
     public String type; // "hello", "chat", "system", "kick", "register", "login", "auth_success", "auth_failure", "history"
@@ -8,6 +10,7 @@ public class Message {
     public String text;
     public String username; // For login/register
     public String password; // For login/register
+    public List<String> users;
 
     public Message() {}
 
@@ -75,6 +78,12 @@ public class Message {
         m.type = "history";
         m.name = name;
         m.text = text;
+        return m;
+    }
+    public static Message userlist(List<String> users) {
+        Message m = new Message();
+        m.type = "user_list";
+        m.users = users;
         return m;
     }
 

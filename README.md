@@ -9,7 +9,11 @@
 ## Yêu cầu
 - Java 17+
 - Maven 3+
+- Chạy trên Intellij
 
+## Hướng dẫn chạy 
+- copy mã dán vô terninal
+- chạy nhiều client thì dùng bấm play ở dòng dưới client cho nhanh
 ## Build
 ```bash
 mvn -q -e -DskipTests package
