@@ -177,6 +177,41 @@ public class ServerUI extends JFrame {
             appendLog(m.text);
         }
     }
+    private void sendPrivateMessage(ClientConn sender, Message m) {
+        String targetName = m.targetName;
+        ClientConn target = null;
+        for (ClientConn c : clients) {
+            if (targetName.equals(c.name)) {
+                target = c;
+                break;
+            }
+        }
+
+        if (target == null) {
+            sendToClient(sender, Message.system("Người dùng" + targetName + "' không kết nối hoặc không tồn tại"));
+            return;
+        }
+        // 1. Prepare message for target (show who sent it)
+        Message msgToTarget = new Message();
+        msgToTarget.type = "dm";
+        msgToTarget.name = sender.name;
+        msgToTarget.targetName = targetName;
+        msgToTarget.text = m.text;
+
+        // 2. Prepare confirmation message for sender (indicate message sent)
+        Message msgToSender = new Message();
+        msgToSender.type = "dm";
+        msgToSender.name = "[TO " + targetName + "]"; // Tag for client to display "Sent to..."
+        msgToSender.targetName = targetName;
+        msgToSender.text = m.text;
+
+        // 3. Send
+        sendToClient(target, msgToTarget);
+        sendToClient(sender, msgToSender);
+
+        appendLog("[DM] " + sender.name + " -> " + targetName + ": " + m.text);
+    }
+
 
     // NEW: Helper to send a single message to one client
     private void sendToClient(ClientConn client, Message m) {
@@ -280,12 +315,17 @@ public class ServerUI extends JFrame {
                     if (l == null) break;
                     try {
                         Message m = gson.fromJson(l, Message.class);
-                        if (m != null && "chat".equals(m.type)) {
-                            Message outMsg = new Message();
-                            outMsg.type = "chat";
-                            outMsg.name = name; // Client's authenticated name
-                            outMsg.text = m.text;
-                            broadcast(outMsg);
+                        if (m != null) {
+                            if ("chat".equals(m.type)) {
+                                Message outMsg = new Message();
+                                outMsg.type = "chat";
+                                outMsg.name = name;
+                                outMsg.text = m.text;
+                                broadcast(outMsg); // Public Chat
+                            } else if ("dm".equals(m.type) && m.targetName != null) { // NEW: Handle DM
+                                m.name = name; // Set sender's name from connection
+                                sendPrivateMessage(this, m); // Private Chat
+                            }
                         }
                     } catch (JsonSyntaxException ignore) {}
                 }

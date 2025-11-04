@@ -26,22 +26,6 @@ Client GUI:
 java -cp target/swing-tcp-chat-1.0.0.jar com.chat.client.ClientUI
 ```
 
-## Gợi ý nâng cấp giao diện "hiện đại"
-- Thêm **FlatLaf** (Light/Dark) để giao diện Swing hiện đại hơn:
-  - Dependency:
-    ```xml
-    <dependency>
-      <groupId>com.formdev</groupId>
-      <artifactId>flatlaf</artifactId>
-      <version>3.5.4</version>
-    </dependency>
-    ```
-  - Ở `main`, thêm:
-    ```java
-    com.formdev.flatlaf.FlatLightLaf.setup();
-    UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
-    ```
-
 ## Thư mục
 ```
 src/main/java/com/chat/Message.java

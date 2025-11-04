@@ -4,6 +4,7 @@ public class Message {
     // NEW types: "register", "login", "auth_success", "auth_failure", "history"
     public String type; // "hello", "chat", "system", "kick", "register", "login", "auth_success", "auth_failure", "history"
     public String name;
+    public String targetName;
     public String text;
     public String username; // For login/register
     public String password; // For login/register
@@ -61,7 +62,13 @@ public class Message {
         m.text = reason;
         return m;
     }
-
+    public static Message direct(String targetName, String text) {
+        Message m = new Message();
+        m.type = "dm";
+        m.targetName = targetName;
+        m.text = text;
+        return m;
+    }
     // NEW: History Message (server sends this)
     public static Message history(String name, String text) {
         Message m = new Message();
@@ -70,4 +77,5 @@ public class Message {
         m.text = text;
         return m;
     }
+
 }
