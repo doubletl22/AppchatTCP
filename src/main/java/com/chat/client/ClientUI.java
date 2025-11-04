@@ -20,9 +20,9 @@ import java.util.List;
 public class ClientUI extends JFrame {
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
-    private final JButton connectBtn = new JButton("Connect");
-    private final JButton disconnectBtn = new JButton("Disconnect");
-    private final JLabel statusLabel = new JLabel("Status: Disconnected");
+    private final JButton connectBtn = new JButton("Kết nối");
+    private final JButton disconnectBtn = new JButton("Ngắt kết nối");
+    private final JLabel statusLabel = new JLabel("Trạng thái: Ngắt kết nối");
 
     // NEW UI COMPONENTS for Zalo-like layout
     private final DefaultListModel<String> conversationListModel = new DefaultListModel<>(); // Danh sách trò chuyện
@@ -31,7 +31,7 @@ public class ClientUI extends JFrame {
     // Main Chat Panel components
     private final JTextArea chatArea = new JTextArea();
     private final JTextField inputField = new JTextField();
-    private final JButton sendBtn = new JButton("Send");
+    private final JButton sendBtn = new JButton("Gửi");
     private final JLabel chatHeaderLabel = new JLabel("Public Chat", SwingConstants.CENTER); // Hiển thị tên người/nhóm đang chat
 
     private volatile boolean connected = false;
@@ -47,7 +47,7 @@ public class ClientUI extends JFrame {
     private final Gson gson = new Gson();
 
     public ClientUI() {
-        super("TCP Chat Client (Swing)");
+        super("Chat Client ");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 650); // Mở rộng kích thước
         setLocationRelativeTo(null);
@@ -138,9 +138,9 @@ public class ClientUI extends JFrame {
         // Xóa màn hình chat cũ (Trong ứng dụng thực tế, bạn sẽ tải lịch sử chat ở đây)
         chatArea.setText("");
         if (currentRecipient.equals("Public Chat")) {
-            appendChat("--- Switched to Public Chat (History not reloaded) ---");
+            appendChat("--- Chuyển sang Public Chat (Lịch sử đoạn chat không hiển thị) ---");
         } else {
-            appendChat("--- Switched to Direct Message with " + currentRecipient + " ---");
+            appendChat("--- Chuyển sang tin nhắn trực tiếp tới " + currentRecipient + " ---");
         }
     }
 
@@ -176,7 +176,7 @@ public class ClientUI extends JFrame {
                     conversationList.setSelectedIndex(0);
                     chatHeaderLabel.setText("Public Chat");
                     chatArea.setText("");
-                    appendChat("--- Your recipient disconnected. Switched to Public Chat ---");
+                    appendChat("---" + currentRecipient + "đã mất kết nổi, chuyển sang public chat! ---");
                 }
             }
         });
@@ -199,17 +199,17 @@ public class ClientUI extends JFrame {
         private String action;
 
         public LoginDialog(JFrame parent) {
-            super(parent, "Login or Register", true);
+            super(parent, "Đăng nhập hoặc đăng kí", true);
             setLayout(new GridLayout(4, 2, 5, 5));
             ((JPanel)getContentPane()).setBorder(new EmptyBorder(10, 10, 10, 10));
 
-            add(new JLabel("Username:"));
+            add(new JLabel("Tên đăng nhập:"));
             add(usernameField);
-            add(new JLabel("Password:"));
+            add(new JLabel("Mật khẩu:"));
             add(passwordField);
 
-            JButton loginBtn = new JButton("Login");
-            JButton registerBtn = new JButton("Register");
+            JButton loginBtn = new JButton("Đăng nhập");
+            JButton registerBtn = new JButton("Đăng kí");
 
             loginBtn.addActionListener(e -> {
                 username = usernameField.getText();
@@ -416,6 +416,9 @@ public class ClientUI extends JFrame {
                 }
             } else {
                 msgToSend = com.chat.Message.direct(recipient, text);
+                if (currentRecipient.equals(recipient)) {
+                    appendChat("Tin nhắn gửi tới " + recipient + "] " + text);
+                }
             }
 
             String json = gson.toJson(msgToSend) + "\n";
