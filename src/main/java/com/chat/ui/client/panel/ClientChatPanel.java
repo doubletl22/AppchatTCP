@@ -45,8 +45,6 @@ public class ClientChatPanel extends JPanel {
         bottomInput.add(inputField, BorderLayout.CENTER);
         bottomInput.add(sendBtn, BorderLayout.EAST);
         add(bottomInput, BorderLayout.SOUTH);
-
-        // Dòng lỗi đã bị xóa khỏi đây. Việc binding được thực hiện trong ClientView.java.
     }
 
     public void setHeaderText(String text) {
@@ -70,17 +68,19 @@ public class ClientChatPanel extends JPanel {
     }
 
     public void appendMessage(Message m, String currentUserName) {
+        // Xác định isSelf: Đúng cho tin nhắn live và tin nhắn lịch sử của mình
         boolean isSelf = m.name != null && m.name.equals(currentUserName);
 
         UiUtils.invokeLater(() -> {
-            // 1. Tin nhắn hệ thống, lịch sử chat công khai, lỗi
-            if ("system".equals(m.type) || "history".equals(m.type) || "dm_history".equals(m.type)) {
-                // Tin nhắn lịch sử/hệ thống đơn giản
-                JLabel systemLabel = UiUtils.createSystemMessageLabel(formatSystemOrHistoryMessage(m));
+
+            // 1. Chỉ tin nhắn hệ thống (type="system") là non-bubble
+            if ("system".equals(m.type)) {
+                JLabel systemLabel = UiUtils.createSystemMessageLabel(m.text);
                 GridBagConstraints gbc = createGBC(GridBagConstraints.CENTER);
                 chatDisplayPanel.add(systemLabel, gbc);
             } else {
-                // 2. Chat/DM (Bong bóng chat)
+                // 2. Chat/DM/History (Bong bóng chat)
+
                 JPanel messageBubble = createChatBubble(m.name, m.text, isSelf);
 
                 JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 5));
@@ -104,13 +104,10 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
+    // Hàm formatSystemOrHistoryMessage được giữ lại cho tính nhất quán
+    // và chỉ trả về m.text cho tin nhắn hệ thống sau khi logic history đã được di chuyển.
     private String formatSystemOrHistoryMessage(Message m) {
-        if ("history".equals(m.type)) {
-            return "[HISTORY] " + m.name + ": " + m.text;
-        } else if ("dm_history".equals(m.type)) {
-            String prefix = m.name.equals(viewModel.getUserName()) ? "[Bạn] " : "[" + m.name + "] ";
-            return prefix + m.text;
-        }
+        // Do history và dm_history đã được chuyển sang bubble, chỉ cần trả về text cho system
         return m.text;
     }
 
