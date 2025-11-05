@@ -9,7 +9,7 @@ import java.awt.*;
 public class ClientConnectPanel extends JPanel {
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
-    private final JLabel statusLabel = new JLabel("Trạng thái: Ngắt kết nối");
+    private final JLabel statusLabel = new JLabel("Trạng thái: ");
     private final JButton connectBtn = new JButton();
     private final JButton disconnectBtn = new JButton();
 

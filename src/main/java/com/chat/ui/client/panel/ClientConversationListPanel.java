@@ -20,7 +20,7 @@ public class ClientConversationListPanel extends JPanel {
         conversationList.setModel(viewModel.getConversationListModel());
         conversationList.setSelectedIndex(0);
 
-        add(new JLabel("Conversations", SwingConstants.CENTER), BorderLayout.NORTH);
+        add(new JLabel("Danh sách", SwingConstants.CENTER), BorderLayout.NORTH);
         add(new JScrollPane(conversationList), BorderLayout.CENTER);
     }
 

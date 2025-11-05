@@ -13,7 +13,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ClientChatPanel extends JPanel {
-    private final JLabel chatHeaderLabel = new JLabel("Public Chat", SwingConstants.CENTER);
+    // THAY ĐỔI: Khởi tạo với một placeholder trung lập
+    private final JLabel chatHeaderLabel = new JLabel("Tin nhắn", SwingConstants.CENTER);
     private final JPanel chatDisplayPanel = new JPanel(new GridBagLayout());
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton();
@@ -47,6 +48,7 @@ public class ClientChatPanel extends JPanel {
         add(bottomInput, BorderLayout.SOUTH);
     }
 
+    // Hàm này được gọi bởi ClientView thông qua binding để cập nhật tên người nhận
     public void setHeaderText(String text) {
         chatHeaderLabel.setText(text);
     }
@@ -68,7 +70,6 @@ public class ClientChatPanel extends JPanel {
     }
 
     public void appendMessage(Message m, String currentUserName) {
-        // Xác định isSelf: Đúng cho tin nhắn live và tin nhắn lịch sử của mình
         boolean isSelf = m.name != null && m.name.equals(currentUserName);
 
         UiUtils.invokeLater(() -> {
@@ -104,8 +105,6 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // Hàm formatSystemOrHistoryMessage được giữ lại cho tính nhất quán
-    // và chỉ trả về m.text cho tin nhắn hệ thống sau khi logic history đã được di chuyển.
     private String formatSystemOrHistoryMessage(Message m) {
         // Do history và dm_history đã được chuyển sang bubble, chỉ cần trả về text cho system
         return m.text;
