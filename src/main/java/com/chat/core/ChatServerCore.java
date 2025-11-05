@@ -1,7 +1,7 @@
-package com.chat.server;
+package com.chat.core;
 
-import com.chat.DatabaseManager;
-import com.chat.Message;
+import com.chat.model.Message;
+import com.chat.service.DatabaseManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
@@ -21,8 +21,8 @@ public class ChatServerCore extends Thread {
     private volatile boolean running = false;
     private final List<ClientConn> clients = new CopyOnWriteArrayList<>();
     private final Gson gson = new Gson();
-    private final DatabaseManager dbManager; // DAL dependency
-    private final ServerLogListener logListener; // Presentation dependency
+    private final DatabaseManager dbManager;
+    private final ServerLogListener logListener;
 
     public ChatServerCore(int port, DatabaseManager dbManager, ServerLogListener logListener) {
         this.port = port;
@@ -52,7 +52,6 @@ public class ChatServerCore extends Thread {
         logListener.log("Server stopped.");
     }
 
-    // Delegates control to the Core Layer
     public void kickClient(String nameToKick) {
         for (ClientConn c : clients) {
             if (nameToKick.equals(c.name)) {
@@ -102,6 +101,9 @@ public class ChatServerCore extends Thread {
                 .filter(c -> targetName.equals(c.name))
                 .findFirst().orElse(null);
 
+        // Store DM message
+        dbManager.storeDirectMessage(sender.name, targetName, m.text);
+
         if (target == null) {
             sendToClient(sender, Message.system("Người dùng " + targetName + " không kết nối hoặc không tồn tại"));
             return;
@@ -121,7 +123,6 @@ public class ChatServerCore extends Thread {
         msgToSender.targetName = targetName;
         msgToSender.text = m.text;
 
-        // 3. Send
         sendToClient(target, msgToTarget);
         sendToClient(sender, msgToSender);
 
@@ -145,7 +146,6 @@ public class ChatServerCore extends Thread {
     }
 
     private class ClientConn extends Thread {
-        // ... (Connection fields)
         final Socket socket;
         final BufferedReader reader;
         final BufferedOutputStream out;
@@ -235,6 +235,8 @@ public class ChatServerCore extends Thread {
                             } else if ("dm".equals(m.type) && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);
+                            } else if ("get_dm_history".equals(m.type) && m.targetName != null) {
+                                handleDirectHistoryRequest(this, m.targetName);
                             }
                         }
                     } catch (JsonSyntaxException ignore) {}
@@ -256,6 +258,23 @@ public class ChatServerCore extends Thread {
                 broadcast(Message.system(name + " left the chat."));
                 logListener.log("Client disconnected: " + name);
             }
+        }
+    }
+
+    /**
+     * Xử lý yêu cầu lấy lịch sử DM từ client.
+     */
+    private void handleDirectHistoryRequest(ClientConn client, String targetName) {
+        try {
+            List<Message> history = dbManager.getDirectMessageHistory(client.name, targetName, 50);
+            sendToClient(client, Message.system("--- Lịch sử tin nhắn với " + targetName + " đã tải ---"));
+            for (Message dmMsg : history) {
+                dmMsg.type = "dm_history";
+                sendToClient(client, dmMsg);
+            }
+        } catch (Exception ex) {
+            logListener.log("Error loading DM history for " + client.name + ": " + ex.getMessage());
+            sendToClient(client, Message.system("Không thể tải lịch sử tin nhắn."));
         }
     }
 }

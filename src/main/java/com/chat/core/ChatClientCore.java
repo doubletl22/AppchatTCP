@@ -1,6 +1,6 @@
-package com.chat.client;
+package com.chat.core; // Đã đổi package
 
-import com.chat.Message;
+import com.chat.model.Message; // Đã đổi import
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
@@ -22,9 +22,14 @@ public class ChatClientCore {
     private BufferedOutputStream out;
     private Thread recvThread;
     private final Gson gson = new Gson();
-    private final ClientStatusListener listener; // Presentation dependency
+    private ClientStatusListener listener;
 
     public ChatClientCore(ClientStatusListener listener) {
+        this.listener = listener;
+    }
+
+    // Setter mới để Controller có thể set chính nó làm Listener
+    public void setListener(ClientStatusListener listener) {
         this.listener = listener;
     }
 
@@ -40,8 +45,8 @@ public class ChatClientCore {
             out = new BufferedOutputStream(socket.getOutputStream());
 
             Message authMsg = "login".equals(action)
-                    ? com.chat.Message.login(username, password)
-                    : com.chat.Message.register(username, password);
+                    ? Message.login(username, password)
+                    : Message.register(username, password);
 
             String json = gson.toJson(authMsg) + "\n";
             out.write(json.getBytes(StandardCharsets.UTF_8));
@@ -67,7 +72,7 @@ public class ChatClientCore {
         try { socket.close(); } catch (Exception ignored) {}
         socket = null;
 
-        listener.onDisconnect(reason);
+        if (listener != null) listener.onDisconnect(reason);
     }
 
     private void recvLoop() {
@@ -82,9 +87,9 @@ public class ChatClientCore {
                         authenticated = true;
                         userName = m.name;
                         currentUsers.add(userName);
-                        listener.onConnectSuccess(userName);
+                        if (listener != null) listener.onConnectSuccess(userName);
                     } else if ("auth_failure".equals(m.type)) {
-                        listener.onAuthFailure(m.text);
+                        if (listener != null) listener.onAuthFailure(m.text);
                         disconnect(null);
                         return;
                     } else if ("user_list".equals(m.type) && m.users != null) {
@@ -96,10 +101,10 @@ public class ChatClientCore {
                                 .sorted()
                                 .filter(n -> !n.equals(userName))
                                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-                        listener.onUserListUpdate(listToSend, userName);
+                        if (listener != null) listener.onUserListUpdate(listToSend, userName);
                     } else if (authenticated) {
                         if ("system".equals(m.type)) {
-                            listener.onSystemMessage(m.text);
+                            if (listener != null) listener.onSystemMessage(m.text);
 
                             String name = null;
                             if (m.text.endsWith(" joined the chat.")) {
@@ -116,10 +121,10 @@ public class ChatClientCore {
                                         .sorted()
                                         .filter(n -> !n.equals(userName))
                                         .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-                                listener.onUserListUpdate(listToSend, userName);
+                                if (listener != null) listener.onUserListUpdate(listToSend, userName);
                             }
                         } else {
-                            listener.onMessageReceived(m);
+                            if (listener != null) listener.onMessageReceived(m);
                         }
                     }
                 } catch (JsonSyntaxException ignore) {}
@@ -127,7 +132,7 @@ public class ChatClientCore {
         } catch (IOException ignore) {
         } finally {
             if (connected) {
-                listener.onSystemMessage("Connection lost.");
+                if (listener != null) listener.onSystemMessage("Connection lost.");
                 disconnect("Connection lost.");
             }
         }
@@ -138,10 +143,21 @@ public class ChatClientCore {
 
         Message msgToSend;
         if ("Public Chat".equals(recipient)) {
-            msgToSend = com.chat.Message.chat(text);
+            msgToSend = Message.chat(text); // Server sẽ tự điền name
         } else {
-            msgToSend = com.chat.Message.direct(recipient, text);
+            msgToSend = Message.direct(recipient, text); // Server sẽ tự điền name
         }
+
+        String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    // Phương thức mới: Yêu cầu lịch sử DM
+    public void requestDirectHistory(String targetName) throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
+
+        Message msgToSend = Message.getDirectHistory(targetName);
 
         String json = gson.toJson(msgToSend) + "\n";
         out.write(json.getBytes(StandardCharsets.UTF_8));

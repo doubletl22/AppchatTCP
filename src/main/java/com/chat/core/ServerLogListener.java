@@ -1,4 +1,4 @@
-package com.chat.server;
+package com.chat.core;
 
 import java.util.List;
 

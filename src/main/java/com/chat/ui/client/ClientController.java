@@ -1,0 +1,168 @@
+package com.chat.ui.client;
+
+import com.chat.core.ChatClientCore;
+import com.chat.core.ClientStatusListener;
+import com.chat.model.ClientViewModel;
+import com.chat.model.Message;
+import com.chat.ui.client.dialog.LoginDialog;
+import com.chat.util.UiUtils;
+
+import javax.swing.*;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Controller xử lý tất cả Logic và là Listener cho Core Layer.
+ */
+public class ClientController implements ClientStatusListener {
+
+    private final ChatClientCore clientCore;
+    private final ClientViewModel viewModel;
+    private final JFrame parentFrame;
+
+    public ClientController(JFrame parentFrame, ChatClientCore clientCore, ClientViewModel viewModel) {
+        this.parentFrame = parentFrame;
+        this.clientCore = clientCore;
+        this.viewModel = viewModel;
+    }
+
+    // --- Actions/Command Handlers ---
+
+    public void handleConnect(String host, int port, String username, String password, String action) {
+        if (clientCore.isConnected()) return;
+
+        viewModel.setConnectionStatus(true, false);
+        viewModel.notifyMessageReceived(Message.system("Attempting to connect and authenticate..."));
+
+        try {
+            clientCore.connectAndAuth(host, port, username, password, action);
+
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[ERROR] Cannot connect: " + ex.getMessage()));
+            viewModel.setConnectionStatus(false, false);
+            JOptionPane.showMessageDialog(parentFrame, "Cannot connect: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void handleDisconnect() {
+        clientCore.disconnect("User initiated disconnect.");
+    }
+
+    public void handleSend(String text) {
+        if (!clientCore.isAuthenticated()) return;
+
+        String recipient = viewModel.getCurrentRecipient();
+        String userName = viewModel.getUserName();
+
+        try {
+            clientCore.sendMessage(text, recipient);
+
+            // Local Echo: Hiển thị ngay tin nhắn gửi đi
+            if ("Public Chat".equals(recipient)) {
+                // Tin nhắn công khai
+                viewModel.notifyMessageReceived(Message.chat(userName, text));
+            } else {
+                // Tin nhắn DM (isSelf = true)
+                viewModel.notifyMessageReceived(Message.dm(userName, recipient, text, true));
+            }
+
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[ERROR] " + ex.getMessage()));
+            handleDisconnect();
+        }
+    }
+
+    public void requestHistory(String targetUser) {
+        try {
+            clientCore.requestDirectHistory(targetUser);
+            viewModel.notifyMessageReceived(Message.system("Đang tải lịch sử tin nhắn..."));
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[ERROR] Không thể yêu cầu lịch sử DM: " + ex.getMessage()));
+        }
+    }
+
+    public void showLoginDialog() {
+        LoginDialog dialog = new LoginDialog(parentFrame);
+        dialog.setVisible(true);
+
+        if (dialog.isCancelled()) return;
+
+        String host = dialog.getHost().trim();
+        int port = dialog.getPort(); // <--- ĐÃ SỬA: Sử dụng dialog.getPort()
+
+        final String username = dialog.getUsername().trim();
+        final String password = dialog.getPassword().trim();
+        final String action = dialog.getAction();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(parentFrame, "Username and Password cannot be empty", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Kiểm tra lỗi Port (được đánh dấu là -1 nếu parsing thất bại trong LoginDialog)
+        if (port == -1) {
+            JOptionPane.showMessageDialog(parentFrame, "Port must be integer", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        handleConnect(host, port, username, password, action);
+    }
+
+    // --- Core Listener Implementations (Callbacks từ ChatClientCore) ---
+
+    @Override
+    public void onConnectSuccess(String userName) {
+        viewModel.setUserName(userName);
+        viewModel.setConnectionStatus(true, true);
+        viewModel.notifyMessageReceived(Message.system("Authentication successful. Welcome, " + userName + "!"));
+    }
+
+    @Override
+    public void onDisconnect(String reason) {
+        viewModel.setConnectionStatus(false, false);
+        viewModel.updateUsers(Collections.emptyList());
+        viewModel.setCurrentRecipient("Public Chat");
+        viewModel.notifyMessageReceived(Message.system("Disconnected. Reason: " + (reason != null && !reason.isEmpty() ? reason : "Unknown.")));
+    }
+
+    @Override
+    public void onAuthFailure(String reason) {
+        viewModel.notifyMessageReceived(Message.system("[AUTH FAILED] " + reason));
+        handleDisconnect();
+    }
+
+    @Override
+    public void onSystemMessage(String text) {
+        viewModel.notifyMessageReceived(Message.system(text));
+
+        // Cập nhật danh sách người dùng dựa trên tin nhắn hệ thống (Logic Business)
+        if (text.endsWith(" joined the chat.")) {
+            String name = text.substring(0, text.indexOf(" joined the chat."));
+            viewModel.addUser(name);
+        } else if (text.endsWith(" left the chat.") || text.endsWith(" was kicked by server.")) {
+            String name = text.substring(0, text.indexOf(" left the chat."));
+            if (name.equals(text)) name = text.substring(0, text.indexOf(" was kicked by server."));
+            viewModel.removeUser(name);
+        }
+    }
+
+    @Override
+    public void onUserListUpdate(List<String> userNames, String selfName) {
+        viewModel.updateUsers(userNames);
+        viewModel.notifyMessageReceived(Message.system("User list synchronized."));
+    }
+
+    @Override
+    public void onMessageReceived(Message m) {
+        // Xử lý logic chống lặp tin nhắn và thông báo cho View
+        if ("chat".equals(m.type) && m.name.equals(viewModel.getUserName())) {
+            return; // Bỏ qua tin nhắn chat công khai do chính mình gửi (đã Local Echo)
+        }
+        if ("dm".equals(m.type) && m.name.startsWith("[TO ")) {
+            return; // Bỏ qua xác nhận DM từ server (đã Local Echo)
+        }
+
+        viewModel.notifyMessageReceived(m);
+    }
+}

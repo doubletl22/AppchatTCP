@@ -23,11 +23,11 @@ Tạo file: `target/swing-tcp-chat-1.0.0.jar` (fat-jar, kèm deps).
 ## Chạy
 Server GUI:
 ```bash
-java -cp target/swing-tcp-chat-1.0.0.jar com.chat.server.ServerUI
+java -cp target/swing-tcp-chat-1.0.0.jar com.chat.ui.server.ServerView
 ```
 Client GUI:
 ```bash
-java -cp target/swing-tcp-chat-1.0.0.jar com.chat.client.ClientUI
+java -cp target/swing-tcp-chat-1.0.0.jar com.chat.AppLauncher
 ```
 
 ## Thư mục

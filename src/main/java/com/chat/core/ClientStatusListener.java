@@ -1,6 +1,6 @@
-package com.chat.client;
+package com.chat.core; // Đã đổi package
 
-import com.chat.Message;
+import com.chat.model.Message;
 import java.util.List;
 
 public interface ClientStatusListener {

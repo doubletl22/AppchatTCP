@@ -1,0 +1,127 @@
+package com.chat.model;
+
+import java.util.List;
+
+public class Message {
+    public String type;
+    public String time;
+    public String name; // sender
+    public String text;
+    public String targetName; // receiver for dm
+    public String username;
+    public String password;
+    public List<String> users; // Dành cho userlist
+    public boolean isSelf = false; // Dành cho hiển thị cục bộ (Local Echo)
+
+    public Message() {}
+
+    // --- NETWORK SENDING Methods (Dùng bởi Core để gửi đi) ---
+
+    public static Message chat(String text) {
+        Message m = new Message();
+        m.type = "chat";
+        m.text = text;
+        return m;
+    }
+
+    public static Message direct(String targetName, String text) {
+        Message m = new Message();
+        m.type = "dm";
+        m.targetName = targetName;
+        m.text = text;
+        return m;
+    }
+
+    public static Message register(String username, String password) {
+        Message m = new Message();
+        m.type = "register";
+        m.username = username;
+        m.password = password;
+        return m;
+    }
+
+    public static Message login(String username, String password) {
+        Message m = new Message();
+        m.type = "login";
+        m.username = username;
+        m.password = password;
+        return m;
+    }
+
+    public static Message getDirectHistory(String targetUser) {
+        Message m = new Message();
+        m.type = "get_dm_history";
+        m.targetName = targetUser;
+        return m;
+    }
+
+    // --- CORE RECEIVING/DISPLAY Methods (Dùng bởi Core và Controller/ViewModel) ---
+
+    public static Message system(String text) {
+        Message m = new Message();
+        m.type = "system";
+        m.text = text;
+        return m;
+    }
+
+    public static Message authSuccess(String name) {
+        Message m = new Message();
+        m.type = "auth_success";
+        m.name = name;
+        return m;
+    }
+
+    public static Message authFailure(String reason) {
+        Message m = new Message();
+        m.type = "auth_failure";
+        m.text = reason;
+        return m;
+    }
+
+    public static Message userlist(List<String> users) {
+        Message m = new Message();
+        m.type = "user_list";
+        m.users = users;
+        return m;
+    }
+
+    // Public History
+    public static Message history(String name, String text) {
+        Message m = new Message();
+        m.type = "history";
+        m.name = name;
+        m.text = text;
+        return m;
+    }
+
+    public static Message directHistory(String sender, String text, String timestamp) {
+        Message m = new Message();
+        m.type = "dm_history";
+        m.name = sender;
+        m.text = text;
+        m.time = timestamp;
+        return m;
+    }
+
+    // --- LOCAL ECHO/CONTROLLER DISPLAY Methods ---
+
+    // Public chat (Dùng cho Local Echo)
+    public static Message chat(String name, String text) {
+        Message m = new Message();
+        m.type = "chat";
+        m.name = name;
+        m.text = text;
+        return m;
+    }
+
+    // DM (Dùng cho Local Echo)
+    public static Message dm(String name, String targetName, String text, boolean isSelf) {
+        Message m = new Message();
+        m.type = "dm";
+        m.name = name;
+        m.targetName = targetName;
+        m.text = text;
+        m.isSelf = isSelf;
+        return m;
+    }
+}
