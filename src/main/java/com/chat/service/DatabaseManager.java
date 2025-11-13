@@ -123,6 +123,7 @@ public class DatabaseManager {
             while (rs.next()) {
                 String sender = rs.getString("sender");
                 String text = rs.getString("text");
+                // Cập nhật: Sử dụng Message.history để xử lý marker [GIF]: nếu có
                 reversedHistory.add(Message.history(sender, text));
             }
 
@@ -158,6 +159,7 @@ public class DatabaseManager {
                     String time = rs.getString("time");
                     String sender = rs.getString("sender");
                     String message = rs.getString("message");
+                    // Cập nhật: Sử dụng Message.directHistory để xử lý marker [GIF]: nếu có
                     reversedHistory.add(0, Message.directHistory(sender, message, time));
                 }
                 history.addAll(reversedHistory);

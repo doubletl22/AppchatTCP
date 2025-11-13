@@ -54,17 +54,38 @@ public class ClientController implements ClientStatusListener {
 
         String recipient = viewModel.getCurrentRecipient();
         String userName = viewModel.getUserName();
+        // NEW: Check for /gif command
+        boolean isGif = text.trim().toLowerCase().startsWith("/gif ");
 
         try {
-            clientCore.sendMessage(text, recipient);
+            if (isGif) {
+                // Extract GIF keyword/URL (e.g., from "/gif hello" -> "hello")
+                String gifText = text.trim().substring(5).trim();
 
-            // Local Echo: Hiển thị ngay tin nhắn gửi đi
-            if ("Public Chat".equals(recipient)) {
-                // Tin nhắn công khai
-                viewModel.notifyMessageReceived(Message.chat(userName, text));
+                if (gifText.isEmpty()) {
+                    viewModel.notifyMessageReceived(Message.system("[LỖI] Cú pháp GIF: /gif <từ_khóa>"));
+                    return;
+                }
+
+                clientCore.sendGif(gifText, recipient); // Use the new sendGif method
+
+                // Local Echo for GIF: Sử dụng marker [GIF]: để Message.java tạo đúng loại tin nhắn hiển thị
+                if ("Public Chat".equals(recipient)) {
+                    viewModel.notifyMessageReceived(Message.chat(userName, "[GIF]: " + gifText));
+                } else {
+                    viewModel.notifyMessageReceived(Message.dm(userName, recipient, "[GIF]: " + gifText, true));
+                }
             } else {
-                // Tin nhắn DM (isSelf = true)
-                viewModel.notifyMessageReceived(Message.dm(userName, recipient, text, true));
+                // Handle standard text message
+                clientCore.sendMessage(text, recipient);
+
+                // Local Echo for Text
+                if ("Public Chat".equals(recipient)) {
+                    viewModel.notifyMessageReceived(Message.chat(userName, text));
+                } else {
+                    // Tin nhắn DM (isSelf = true)
+                    viewModel.notifyMessageReceived(Message.dm(userName, recipient, text, true));
+                }
             }
 
         } catch (IOException ex) {
@@ -156,11 +177,15 @@ public class ClientController implements ClientStatusListener {
     @Override
     public void onMessageReceived(Message m) {
         // Xử lý logic chống lặp tin nhắn và thông báo cho View
-        if ("chat".equals(m.type) && m.name.equals(viewModel.getUserName())) {
-            return; // Bỏ qua tin nhắn chat công khai do chính mình gửi (đã Local Echo)
+
+        // NEW: Check for chat and gif types
+        if (("chat".equals(m.type) || "gif".equals(m.type)) && m.name.equals(viewModel.getUserName())) {
+            return; // Bỏ qua tin nhắn chat/gif công khai do chính mình gửi (đã Local Echo)
         }
-        if ("dm".equals(m.type) && m.name.startsWith("[TO ")) {
-            return; // Bỏ qua xác nhận DM từ server (đã Local Echo)
+
+        // NEW: Check for dm and dm_gif types (Local Echo Confirmation)
+        if (("dm".equals(m.type) || "dm_gif".equals(m.type)) && m.name.startsWith("[TO ")) {
+            return; // Bỏ qua xác nhận DM/DM GIF từ server (đã Local Echo)
         }
 
         viewModel.notifyMessageReceived(m);

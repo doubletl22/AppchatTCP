@@ -18,8 +18,6 @@ public class ClientChatPanel extends JPanel {
     private final JPanel chatDisplayPanel = new JPanel(new GridBagLayout());
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton();
-    // [THÊM] Nút gửi Emoji
-    private final JButton emojiBtn = new JButton("😊");
 
     private final ClientViewModel viewModel;
 
@@ -46,22 +44,7 @@ public class ClientChatPanel extends JPanel {
         inputField.setAction(sendAction); // Action gắn vào Field để kích hoạt khi Enter
 
         bottomInput.add(inputField, BorderLayout.CENTER);
-
-        // [THAY ĐỔI] Dùng một panel mới cho các nút bên phải để chứa cả Emoji và Gửi
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
-
-        // Cấu hình Nút Emoji
-        emojiBtn.setFont(emojiBtn.getFont().deriveFont(18f));
-        emojiBtn.setPreferredSize(new Dimension(40, (int)sendBtn.getPreferredSize().getHeight()));
-
-        // [CẬP NHẬT LISTENER] Mở Pop-up thay vì chèn trực tiếp
-        emojiBtn.addActionListener(e -> showEmojiPopup(emojiBtn));
-
-        buttonPanel.add(emojiBtn);
-        buttonPanel.add(sendBtn); // Đặt nút Gửi sau nút Emoji
-
-        // Thêm panel chứa nút Gửi và Emoji vào phía EAST của bottomInput
-        bottomInput.add(buttonPanel, BorderLayout.EAST);
+        bottomInput.add(sendBtn, BorderLayout.EAST);
         add(bottomInput, BorderLayout.SOUTH);
     }
 
@@ -78,50 +61,6 @@ public class ClientChatPanel extends JPanel {
         inputField.setText("");
     }
 
-    // [PHƯƠNG THỨC MỚI] Hiển thị pop-up chọn Emoji
-    private void showEmojiPopup(Component invoker) {
-        JPopupMenu popup = new JPopupMenu();
-        // Danh sách các Emoji
-        String[] emojis = {"😀", "😂", "🥰", "😎", "😭", "👍", "👎", "❤️", "🔥", "🎉"};
-
-        // Tạo layout cho pop-up: 2 hàng, 5 cột
-        JPanel panel = new JPanel(new GridLayout(2, 5, 2, 2));
-
-        for (String emoji : emojis) {
-            // Tạo nút cho từng Emoji
-            JButton emojiButton = createEmojiButton(emoji, popup);
-            panel.add(emojiButton);
-        }
-
-        popup.add(panel);
-        // Hiển thị pop-up ngay dưới nút Emoji
-        popup.show(invoker, 0, invoker.getHeight());
-    }
-
-    // [PHƯƠNG THỨC MỚI] Tạo một nút Emoji
-    private JButton createEmojiButton(String emoji, JPopupMenu popup) {
-        JButton btn = new JButton(emoji);
-        btn.setFont(btn.getFont().deriveFont(20f));
-        btn.setToolTipText(emoji);
-        btn.setFocusable(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btn.addActionListener(e -> {
-            insertEmoji(emoji);
-            popup.setVisible(false); // Đóng popup sau khi chọn
-        });
-        return btn;
-    }
-
-
-    // [PHƯƠNG THỨC ĐÃ SỬA LỖI LẦN TRƯỚC] Chèn Emoji vào ô nhập liệu
-    private void insertEmoji(String emoji) {
-        // Dùng replaceSelection() để chèn nội dung vào vị trí con trỏ hiện tại.
-        inputField.replaceSelection(emoji);
-        inputField.requestFocusInWindow();
-    }
-
     public void clearChatDisplay() {
         UiUtils.invokeLater(() -> {
             chatDisplayPanel.removeAll();
@@ -131,7 +70,16 @@ public class ClientChatPanel extends JPanel {
     }
 
     public void appendMessage(Message m, String currentUserName) {
-        boolean isSelf = m.name != null && m.name.equals(currentUserName);
+        // Updated check for GIF messages
+        boolean isGifMessage = "gif".equals(m.type) || "dm_gif".equals(m.type) || "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
+
+        boolean isSelf;
+        // Logic xác định isSelf: Nếu tin nhắn là xác nhận DM gửi đi (Local Echo), hoặc tên khớp với tên người dùng hiện tại
+        if (m.name != null && m.name.startsWith("[TO ")) {
+            isSelf = true;
+        } else {
+            isSelf = m.name != null && m.name.equals(currentUserName);
+        }
 
         UiUtils.invokeLater(() -> {
 
@@ -141,9 +89,15 @@ public class ClientChatPanel extends JPanel {
                 GridBagConstraints gbc = createGBC(GridBagConstraints.CENTER);
                 chatDisplayPanel.add(systemLabel, gbc);
             } else {
-                // 2. Chat/DM/History (Bong bóng chat)
+                // 2. Chat/DM/History (Bong bóng chat/GIF)
 
-                JPanel messageBubble = createChatBubble(m.name, m.text, isSelf);
+                JPanel messageBubble;
+                if (isGifMessage) {
+                    messageBubble = createGifBubble(m.name, m.text, isSelf);
+                } else {
+                    messageBubble = createChatBubble(m.name, m.text, isSelf);
+                }
+
 
                 JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 5));
                 alignmentWrapper.setBackground(chatDisplayPanel.getBackground());
@@ -169,6 +123,41 @@ public class ClientChatPanel extends JPanel {
     private String formatSystemOrHistoryMessage(Message m) {
         // Do history và dm_history đã được chuyển sang bubble, chỉ cần trả về text cho system
         return m.text;
+    }
+
+    // NEW: Function to create a GIF bubble/component
+    private JPanel createGifBubble(String sender, String gifKeyword, boolean isSelf) {
+        JPanel bubblePanel = new JPanel();
+        bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
+        bubblePanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        bubblePanel.setOpaque(true);
+
+        Color bgColor = isSelf ? new Color(0, 137, 255) : new Color(230, 230, 230);
+        Color fgColor = isSelf ? Color.WHITE : Color.BLACK;
+
+        bubblePanel.setBackground(bgColor);
+
+        // --- Simulated GIF Display ---
+        JLabel gifLabel;
+        try {
+            // Sử dụng một Icon mặc định của hệ thống làm placeholder cho GIF
+            Icon gifIcon = UIManager.getIcon("OptionPane.informationIcon");
+            gifLabel = new JLabel("GIF: " + gifKeyword, gifIcon, SwingConstants.CENTER);
+
+        } catch (Exception e) {
+            gifLabel = new JLabel("Không tải được GIF. Keyword: " + gifKeyword);
+        }
+
+        gifLabel.setForeground(fgColor);
+        gifLabel.setFont(gifLabel.getFont().deriveFont(Font.BOLD, 12f));
+        gifLabel.setBorder(null);
+        gifLabel.setPreferredSize(new Dimension(200, 100)); // Kích thước cố định cho placeholder
+        gifLabel.setMaximumSize(new Dimension(300, 300));
+
+        bubblePanel.add(gifLabel);
+        // --- End Simulated GIF Display ---
+
+        return bubblePanel;
     }
 
     private JPanel createChatBubble(String sender, String text, boolean isSelf) {

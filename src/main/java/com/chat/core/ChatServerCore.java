@@ -24,6 +24,7 @@ public class ChatServerCore extends Thread {
     private final DatabaseManager dbManager;
     private final ServerLogListener logListener;
 
+    // FIX: Khôi phục thứ tự tham số hàm tạo như code gốc (port, dbManager, logListener)
     public ChatServerCore(int port, DatabaseManager dbManager, ServerLogListener logListener) {
         this.port = port;
         this.dbManager = dbManager;
@@ -77,9 +78,18 @@ public class ChatServerCore extends Thread {
     }
 
     public void broadcast(Message m) {
+        String logText = null;
+
         if ("chat".equals(m.type)) {
             dbManager.storeMessage(m.name, m.text);
+            logText = "[CHAT] " + m.name + ": " + m.text;
+        } else if ("gif".equals(m.type)) {
+            dbManager.storeMessage(m.name, "[GIF]: " + m.text); // Lưu kèm marker
+            logText = "[GIF] " + m.name + ": " + m.text;
+        } else if ("system".equals(m.type)) {
+            logText = m.text;
         }
+
 
         for (ClientConn c : new ArrayList<>(clients)) {
             try {
@@ -88,10 +98,9 @@ public class ChatServerCore extends Thread {
                 c.close();
             }
         }
-        if ("chat".equals(m.type)) {
-            logListener.log(m.name + ": " + m.text);
-        } else if ("system".equals(m.type)) {
-            logListener.log(m.text);
+
+        if (logText != null) {
+            logListener.log(logText);
         }
     }
 
@@ -101,7 +110,20 @@ public class ChatServerCore extends Thread {
                 .filter(c -> targetName.equals(c.name))
                 .findFirst().orElse(null);
 
-        dbManager.storeDirectMessage(sender.name, targetName, m.text);
+        // Xác định format lưu trữ
+        String storedMessage = m.text;
+        String logPrefix = "[DM] ";
+        String messageTypeToTarget = "dm";
+        String messageTypeToSender = "dm";
+
+        if ("dm_gif".equals(m.type)) {
+            storedMessage = "[GIF]: " + m.text;
+            logPrefix = "[DM GIF] ";
+            messageTypeToTarget = "dm_gif";
+            messageTypeToSender = "dm_gif";
+        }
+
+        dbManager.storeDirectMessage(sender.name, targetName, storedMessage);
 
         if (target == null) {
             sendToClient(sender, Message.system("Người dùng " + targetName + " không kết nối hoặc không tồn tại"));
@@ -110,14 +132,14 @@ public class ChatServerCore extends Thread {
 
         // 1. Message for target
         Message msgToTarget = new Message();
-        msgToTarget.type = "dm";
+        msgToTarget.type = messageTypeToTarget;
         msgToTarget.name = sender.name;
         msgToTarget.targetName = targetName;
         msgToTarget.text = m.text;
 
         // 2. Confirmation message for sender
         Message msgToSender = new Message();
-        msgToSender.type = "dm";
+        msgToSender.type = messageTypeToSender;
         msgToSender.name = "[TO " + targetName + "]";
         msgToSender.targetName = targetName;
         msgToSender.text = m.text;
@@ -125,7 +147,7 @@ public class ChatServerCore extends Thread {
         sendToClient(target, msgToTarget);
         sendToClient(sender, msgToSender);
 
-        logListener.log("[DM] " + sender.name + " -> " + targetName + ": " + m.text);
+        logListener.log(logPrefix + sender.name + " -> " + targetName + ": " + m.text);
     }
 
     private void sendToClient(ClientConn client, Message m) {
@@ -194,6 +216,7 @@ public class ChatServerCore extends Thread {
                             sendToClient(this, Message.authSuccess(name));
                             logListener.log("Client authenticated: " + name + " @ " + socket.getRemoteSocketAddress());
 
+                            // FIX: Sử dụng lại phương thức getChatHistory gốc
                             List<Message> history = dbManager.getChatHistory(100);
                             for (Message chatMsg : history) { sendToClient(this, chatMsg); }
                             sendToClient(this, Message.system("Chat history loaded."));
@@ -225,13 +248,15 @@ public class ChatServerCore extends Thread {
                     try {
                         Message m = gson.fromJson(l, Message.class);
                         if (m != null) {
-                            if ("chat".equals(m.type)) {
+                            // Cập nhật: Thêm "gif" vào điều kiện public chat
+                            if ("chat".equals(m.type) || "gif".equals(m.type)) {
                                 Message outMsg = new Message();
-                                outMsg.type = "chat";
+                                outMsg.type = m.type;
                                 outMsg.name = name;
                                 outMsg.text = m.text;
                                 broadcast(outMsg);
-                            } else if ("dm".equals(m.type) && m.targetName != null) {
+                                // Cập nhật: Thêm "dm_gif" vào điều kiện private chat
+                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type)) && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);
                             } else if ("get_dm_history".equals(m.type) && m.targetName != null) {
@@ -265,12 +290,14 @@ public class ChatServerCore extends Thread {
      */
     private void handleDirectHistoryRequest(ClientConn client, String targetName) {
         try {
+            // FIX: Sử dụng phương thức getDirectMessageHistory gốc
             List<Message> history = dbManager.getDirectMessageHistory(client.name, targetName, 50);
             sendToClient(client, Message.system("--- Lịch sử tin nhắn với " + targetName + " đã tải ---"));
             for (Message dmMsg : history) {
-                dmMsg.type = "dm_history";
+                // dmMsg.type đã được set thành "dm_history" hoặc "dm_gif_history" trong DatabaseManager
                 sendToClient(client, dmMsg);
             }
+            logListener.log("[HISTORY] " + client.name + " requested DM history with " + targetName + " (" + history.size() + " messages)");
         } catch (Exception ex) {
             logListener.log("Error loading DM history for " + client.name + ": " + ex.getMessage());
             sendToClient(client, Message.system("Không thể tải lịch sử tin nhắn."));
