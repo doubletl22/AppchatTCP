@@ -32,6 +32,15 @@ public class Message {
         return m;
     }
 
+    // NEW: GIF Message for sending
+    public static Message gif(String text, String recipient) {
+        Message m = new Message();
+        m.type = "Public Chat".equals(recipient) ? "gif" : "dm_gif"; // Use 'gif' for public, 'dm_gif' for private
+        m.text = text; // text holds the GIF URL/Keyword
+        m.targetName = "Public Chat".equals(recipient) ? null : recipient;
+        return m;
+    }
+
     public static Message register(String username, String password) {
         Message m = new Message();
         m.type = "register";
@@ -89,8 +98,16 @@ public class Message {
     public static Message history(String name, String text) {
         Message m = new Message();
         m.type = "history";
+
+        // Handle history items that might be GIFs (using a marker for now)
+        if (text != null && text.startsWith("[GIF]:")) {
+            m.type = "gif_history";
+            m.text = text.substring("[GIF]:".length()).trim(); // Store just the keyword/URL
+        } else {
+            m.text = text;
+        }
+
         m.name = name;
-        m.text = text;
         return m;
     }
 
@@ -98,7 +115,15 @@ public class Message {
         Message m = new Message();
         m.type = "dm_history";
         m.name = sender;
-        m.text = text;
+
+        // Handle DM history items that might be GIFs
+        if (text != null && text.startsWith("[GIF]:")) {
+            m.type = "dm_gif_history";
+            m.text = text.substring("[GIF]:".length()).trim(); // Store just the keyword/URL
+        } else {
+            m.text = text;
+        }
+
         m.time = timestamp;
         return m;
     }
@@ -108,19 +133,33 @@ public class Message {
     // Public chat (Dùng cho Local Echo)
     public static Message chat(String name, String text) {
         Message m = new Message();
-        m.type = "chat";
+
+        if (text != null && text.startsWith("[GIF]:")) {
+            m.type = "gif";
+            m.text = text.substring("[GIF]:".length()).trim();
+        } else {
+            m.type = "chat";
+            m.text = text;
+        }
+
         m.name = name;
-        m.text = text;
         return m;
     }
 
     // DM (Dùng cho Local Echo)
     public static Message dm(String name, String targetName, String text, boolean isSelf) {
         Message m = new Message();
-        m.type = "dm";
+
+        if (text != null && text.startsWith("[GIF]:")) {
+            m.type = "dm_gif";
+            m.text = text.substring("[GIF]:".length()).trim();
+        } else {
+            m.type = "dm";
+            m.text = text;
+        }
+
         m.name = name;
         m.targetName = targetName;
-        m.text = text;
         m.isSelf = isSelf;
         return m;
     }

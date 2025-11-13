@@ -153,6 +153,20 @@ public class ChatClientCore {
         out.flush();
     }
 
+    /**
+     * NEW: Gửi tin nhắn GIF lên Server.
+     */
+    public void sendGif(String gifKeyword, String recipient) throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
+
+        // Sử dụng Message.gif factory method mới để tạo tin nhắn loại "gif" hoặc "dm_gif"
+        Message msgToSend = Message.gif(gifKeyword, recipient);
+
+        String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
     // Phương thức mới: Yêu cầu lịch sử DM
     public void requestDirectHistory(String targetName) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");

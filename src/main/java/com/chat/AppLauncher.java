@@ -15,7 +15,7 @@ public class AppLauncher {
         if (args.length > 0 && args[0].equalsIgnoreCase("server")) {
             startServer();
         } else {
-            startClient();
+            startClient();//
         }
     }
 
