@@ -189,5 +189,43 @@ public class ClientController implements ClientStatusListener {
         }
 
         viewModel.notifyMessageReceived(m);
+
+        // =======================================================
+        // NEW: LOGIC HIỂN THỊ THÔNG BÁO KHI NHẬN TIN NHẮN
+        // =======================================================
+        UiUtils.invokeLater(() -> {
+            String senderName = m.name != null ? m.name : "Hệ thống";
+            String title = "";
+            String message = "";
+            boolean isNewMessage = false;
+
+            if ("chat".equals(m.type) || "gif".equals(m.type)) {
+                title = "Tin nhắn công khai mới";
+                // Lấy tối đa 100 ký tự đầu của tin nhắn
+                message = senderName + ": " + (m.text.length() > 100 ? m.text.substring(0, 100) + "..." : m.text);
+                isNewMessage = true;
+            } else if ("dm".equals(m.type) || "dm_gif".equals(m.type)) {
+                title = "Tin nhắn riêng mới từ " + senderName;
+                // Lấy tối đa 100 ký tự đầu của tin nhắn
+                message = m.text.length() > 100 ? m.text.substring(0, 100) + "..." : m.text;
+                isNewMessage = true;
+            }
+
+            if (isNewMessage) {
+                // 1. Kiểm tra nếu tin nhắn đến từ cuộc trò chuyện KHÔNG được chọn hiện tại
+                boolean isCurrentRecipient = false;
+                if (("chat".equals(m.type) || "gif".equals(m.type)) && "Public Chat".equals(viewModel.getCurrentRecipient())) {
+                    isCurrentRecipient = true; // Tin nhắn public và đang xem Public Chat
+                } else if (("dm".equals(m.type) || "dm_gif".equals(m.type)) && senderName.equals(viewModel.getCurrentRecipient())) {
+                    isCurrentRecipient = true; // Tin nhắn DM và đang xem DM của người gửi này
+                }
+
+                // 2. Chỉ hiển thị thông báo nếu cửa sổ KHÔNG được tập trung HOẶC KHÔNG phải cuộc trò chuyện hiện tại
+                if (!parentFrame.isFocused() || !isCurrentRecipient) {
+                    JOptionPane.showMessageDialog(parentFrame, message, title, JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+        });
+        // =======================================================
     }
 }
