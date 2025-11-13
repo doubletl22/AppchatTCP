@@ -215,7 +215,7 @@ public class ClientChatPanel extends JPanel {
         fillerGBC.weighty = 1.0;
         fillerGBC.fill = GridBagConstraints.VERTICAL;
 
-        Component verticalGlue = null;
+        Component verticalGlue = null;//
         if (chatDisplayPanel.getComponentCount() > 0) {
             Component lastComponent = chatDisplayPanel.getComponent(chatDisplayPanel.getComponentCount() - 1);
             if (lastComponent instanceof Box.Filler) {
