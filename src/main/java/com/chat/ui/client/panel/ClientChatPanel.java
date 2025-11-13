@@ -6,6 +6,7 @@ import com.chat.util.UiUtils;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -13,8 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ClientChatPanel extends JPanel {
-
-    private final JLabel chatHeaderLabel = new JLabel("Tin nhắn", SwingConstants.CENTER);
+    //ĐÃ XÓA: private final JLabel chatHeaderLabel = new JLabel("Tin nhắn", SwingConstants.CENTER);
     private final JPanel chatDisplayPanel = new JPanel(new GridBagLayout());
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton();
@@ -27,23 +27,36 @@ public class ClientChatPanel extends JPanel {
         this.viewModel = viewModel;
         setLayout(new BorderLayout(5, 5));
 
-        chatHeaderLabel.setFont(chatHeaderLabel.getFont().deriveFont(Font.BOLD, 14f));
-        add(chatHeaderLabel, BorderLayout.NORTH);
+        // ĐÃ XÓA: Không thêm chatHeaderLabel nữa
+        // chatHeaderLabel.setFont(chatHeaderLabel.getFont().deriveFont(Font.BOLD, 14f));
+        // add(chatHeaderLabel, BorderLayout.NORTH);
 
         // Chat Area Setup
-        chatDisplayPanel.setBackground(Color.WHITE);
+        // SỬA: Bỏ đặt màu nền thủ công, để FlatLaf xử lý
+        // chatDisplayPanel.setBackground(Color.WHITE);
+
         JScrollPane chatScroll = new JScrollPane(chatDisplayPanel);
         chatScroll.getVerticalScrollBar().setUnitIncrement(16);
         chatScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        // THÊM: Bỏ đường viền mặc định của JScrollPane
+        chatScroll.setBorder(BorderFactory.createEmptyBorder());
         add(chatScroll, BorderLayout.CENTER);
 
         // Input Panel Setup
         JPanel bottomInput = new JPanel(new BorderLayout(5, 5));
+        // THÊM: Tạo khoảng cách (padding) cho khu vực nhập liệu
+        bottomInput.setBorder(new EmptyBorder(5, 10, 10, 10));
+
         sendBtn.setAction(sendAction);
+
+        // THAY ĐỔI: Sử dụng thuộc tính FlatLaf để bo tròn và làm nổi bật nút Gửi
+        sendBtn.putClientProperty("JButton.buttonType", "roundRect");
+        sendBtn.setText("Gửi"); // Tùy chọn: có thể dùng icon sau
+        sendBtn.setPreferredSize(new Dimension(80, 30)); // Đặt kích thước cố định
 
         // Gắn Action cho nút Gửi và phím ENTER trong inputField
         inputField.addActionListener(sendAction);
-        inputField.setAction(sendAction); // Action gắn vào Field để kích hoạt khi Enter
+        inputField.setAction(sendAction);
 
         bottomInput.add(inputField, BorderLayout.CENTER);
 
@@ -65,10 +78,7 @@ public class ClientChatPanel extends JPanel {
         add(bottomInput, BorderLayout.SOUTH);
     }
 
-    // Hàm này được gọi bởi ClientView thông qua binding để cập nhật tên người nhận
-    public void setHeaderText(String text) {
-        chatHeaderLabel.setText(text);
-    }
+    // ĐÃ XÓA: Hàm setHeaderText không còn dùng
 
     public String getInputText() {
         return inputField.getText();
@@ -222,13 +232,25 @@ public class ClientChatPanel extends JPanel {
     private JPanel createChatBubble(String sender, String text, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
+
+        // THÊM: Đặt góc bo tròn lớn hơn cho bong bóng (FlatLaf)
+        bubblePanel.putClientProperty("FlatPanel.arc", 16);
         bubblePanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
         bubblePanel.setOpaque(true);
 
-        Color bgColor = isSelf ? new Color(0, 137, 255) : new Color(230, 230, 230);
-        Color fgColor = isSelf ? Color.WHITE : Color.BLACK;
+        // SỬA: Sử dụng màu từ UIManager để tương thích với Light/Dark Mode của FlatLaf
+        Color bgColor = isSelf ? UIManager.getColor("Component.accentColor") : UIManager.getColor("Panel.background");
+        Color fgColor = isSelf ? Color.WHITE : UIManager.getColor("Label.foreground");
 
         bubblePanel.setBackground(bgColor);
+
+        // THÊM: Hiển thị tên người gửi nếu không phải là tin nhắn tự gửi hoặc tin nhắn hệ thống
+        if (!isSelf && sender != null && !sender.equals("Public Chat")) {
+            JLabel senderLabel = new JLabel(sender);
+            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
+            senderLabel.setForeground(UIManager.getColor("text.gray"));
+            bubblePanel.add(senderLabel);
+        }
 
         JTextPane textPane = new JTextPane();
         textPane.setText(text);

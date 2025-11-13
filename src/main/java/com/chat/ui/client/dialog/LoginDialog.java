@@ -18,9 +18,15 @@ public class LoginDialog extends JDialog {
     public LoginDialog(JFrame parent) {
         super(parent, "Đăng nhập hoặc đăng kí", true);
         // Tăng số hàng để chứa Host và Port
-        setLayout(new GridLayout(6, 2, 5, 5));
-        ((JPanel)getContentPane()).setBorder(new EmptyBorder(10, 10, 10, 10));
+        // thay đổi gridlayuot
+        setLayout(new GridLayout(6, 2, 8, 8));
+        ((JPanel)getContentPane()).setBorder(new EmptyBorder(20, 15, 15, 15));// đổi thông số
 
+        //Thêm host và port
+        add(new JLabel("Host:"));
+        add(hostField);
+        add(new JLabel("Port:"));
+        add(portField);
 
         add(new JLabel("Tên đăng nhập:"));
         add(usernameField);
@@ -29,6 +35,10 @@ public class LoginDialog extends JDialog {
 
         JButton loginBtn = new JButton("Đăng nhập");
         JButton registerBtn = new JButton("Đăng kí");
+
+        //Thêm: Biến nút login thành nút Primary (Flatflar)
+        loginBtn.putClientProperty("JButton.defaultButtonFollowsState", true);
+        loginBtn.putClientProperty("JButton.buttonType", "default");
 
         loginBtn.addActionListener(e -> completeAction("login"));
         registerBtn.addActionListener(e -> completeAction("register"));
@@ -42,7 +52,7 @@ public class LoginDialog extends JDialog {
 
 
         pack();
-        setSize(250, getHeight());
+        setSize(300, getHeight());//tăng chều rộng
         setLocationRelativeTo(parent);
         setResizable(false);
     }

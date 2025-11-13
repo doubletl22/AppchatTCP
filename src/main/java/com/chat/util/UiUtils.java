@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import com.formdev.flatlaf.FlatDarkLaf;
 
 public class UiUtils {
     public static final String DATE_FORMAT = "HH:mm:ss";
@@ -19,7 +20,10 @@ public class UiUtils {
 
     public static void setupLookAndFeel() {
         try {
-            UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+            //thêm các thuộc tính render hints cho chu mượt hơn
+            System.setProperty("awt.useSystemAAFontSettings", "on");
+            System.setProperty("swing.aatext", "true");
+            UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
             System.err.println("Failed to initialize FlatLaf: " + ex);
         }
