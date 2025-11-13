@@ -18,6 +18,8 @@ public class ClientChatPanel extends JPanel {
     private final JPanel chatDisplayPanel = new JPanel(new GridBagLayout());
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton();
+    // [THÊM] Nút gửi Emoji
+    private final JButton emojiBtn = new JButton("😊");
 
     private final ClientViewModel viewModel;
 
@@ -44,7 +46,22 @@ public class ClientChatPanel extends JPanel {
         inputField.setAction(sendAction); // Action gắn vào Field để kích hoạt khi Enter
 
         bottomInput.add(inputField, BorderLayout.CENTER);
-        bottomInput.add(sendBtn, BorderLayout.EAST);
+
+        // [THAY ĐỔI] Dùng một panel mới cho các nút bên phải để chứa cả Emoji và Gửi
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+
+        // Cấu hình Nút Emoji
+        emojiBtn.setFont(emojiBtn.getFont().deriveFont(18f));
+        emojiBtn.setPreferredSize(new Dimension(40, (int)sendBtn.getPreferredSize().getHeight()));
+
+        // [CẬP NHẬT LISTENER] Mở Pop-up thay vì chèn trực tiếp
+        emojiBtn.addActionListener(e -> showEmojiPopup(emojiBtn));
+
+        buttonPanel.add(emojiBtn);
+        buttonPanel.add(sendBtn); // Đặt nút Gửi sau nút Emoji
+
+        // Thêm panel chứa nút Gửi và Emoji vào phía EAST của bottomInput
+        bottomInput.add(buttonPanel, BorderLayout.EAST);
         add(bottomInput, BorderLayout.SOUTH);
     }
 
@@ -59,6 +76,50 @@ public class ClientChatPanel extends JPanel {
 
     public void clearInputField() {
         inputField.setText("");
+    }
+
+    // [PHƯƠNG THỨC MỚI] Hiển thị pop-up chọn Emoji
+    private void showEmojiPopup(Component invoker) {
+        JPopupMenu popup = new JPopupMenu();
+        // Danh sách các Emoji
+        String[] emojis = {"😀", "😂", "🥰", "😎", "😭", "👍", "👎", "❤️", "🔥", "🎉"};
+
+        // Tạo layout cho pop-up: 2 hàng, 5 cột
+        JPanel panel = new JPanel(new GridLayout(2, 5, 2, 2));
+
+        for (String emoji : emojis) {
+            // Tạo nút cho từng Emoji
+            JButton emojiButton = createEmojiButton(emoji, popup);
+            panel.add(emojiButton);
+        }
+
+        popup.add(panel);
+        // Hiển thị pop-up ngay dưới nút Emoji
+        popup.show(invoker, 0, invoker.getHeight());
+    }
+
+    // [PHƯƠNG THỨC MỚI] Tạo một nút Emoji
+    private JButton createEmojiButton(String emoji, JPopupMenu popup) {
+        JButton btn = new JButton(emoji);
+        btn.setFont(btn.getFont().deriveFont(20f));
+        btn.setToolTipText(emoji);
+        btn.setFocusable(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btn.addActionListener(e -> {
+            insertEmoji(emoji);
+            popup.setVisible(false); // Đóng popup sau khi chọn
+        });
+        return btn;
+    }
+
+
+    // [PHƯƠNG THỨC ĐÃ SỬA LỖI LẦN TRƯỚC] Chèn Emoji vào ô nhập liệu
+    private void insertEmoji(String emoji) {
+        // Dùng replaceSelection() để chèn nội dung vào vị trí con trỏ hiện tại.
+        inputField.replaceSelection(emoji);
+        inputField.requestFocusInWindow();
     }
 
     public void clearChatDisplay() {
