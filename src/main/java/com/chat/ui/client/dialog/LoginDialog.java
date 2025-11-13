@@ -33,10 +33,16 @@ public class LoginDialog extends JDialog {
         loginBtn.addActionListener(e -> completeAction("login"));
         registerBtn.addActionListener(e -> completeAction("register"));
 
-        add(loginBtn);
-        add(registerBtn);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        buttonPanel.add(loginBtn);
+        buttonPanel.add(registerBtn);
+
+        add(buttonPanel);
+        add(new JLabel());
+
 
         pack();
+        setSize(250, getHeight());
         setLocationRelativeTo(parent);
         setResizable(false);
     }

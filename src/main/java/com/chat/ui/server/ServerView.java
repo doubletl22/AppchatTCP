@@ -27,7 +27,7 @@ public class ServerView extends JFrame {
     private final DatabaseManager dbManager = new DatabaseManager();
 
     public ServerView(ServerController controller) {
-        super("TCP Chat Server (Swing) - MVP");
+        super("Server");
         this.controller = controller;
 
         setupActions();
@@ -43,12 +43,10 @@ public class ServerView extends JFrame {
     // Phương thức mới để tiêm Controller (injection) và giải quyết dependency cycle
     public void setController(ServerController controller) {
         this.controller = controller;
-        // Chạy lại setupActions sau khi Controller đã có
         setupActions();
     }
 
     private void setupActions() {
-        // Chỉ thiết lập Actions nếu Controller đã được tiêm (hoặc được khởi tạo trong constructor)
         if (controller == null) return;
 
         startBtn.setAction(new StartServerAction(controller));

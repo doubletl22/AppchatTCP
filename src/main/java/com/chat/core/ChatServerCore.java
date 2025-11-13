@@ -101,7 +101,6 @@ public class ChatServerCore extends Thread {
                 .filter(c -> targetName.equals(c.name))
                 .findFirst().orElse(null);
 
-        // Store DM message
         dbManager.storeDirectMessage(sender.name, targetName, m.text);
 
         if (target == null) {
