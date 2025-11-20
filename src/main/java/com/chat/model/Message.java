@@ -13,6 +13,9 @@ public class Message {
     public List<String> users; // Dành cho userlist
     public boolean isSelf = false; // Dành cho hiển thị cục bộ (Local Echo)
 
+    // [MỚI] Trường chứa dữ liệu âm thanh (Base64 string)
+    public String data;
+
     public Message() {}
 
     // --- NETWORK SENDING Methods (Dùng bởi Core để gửi đi) ---
@@ -32,12 +35,22 @@ public class Message {
         return m;
     }
 
-    // NEW: GIF Message for sending
+    // GIF Message for sending
     public static Message gif(String text, String recipient) {
         Message m = new Message();
-        m.type = "Public Chat".equals(recipient) ? "gif" : "dm_gif"; // Use 'gif' for public, 'dm_gif' for private
+        m.type = "Public Chat".equals(recipient) ? "gif" : "dm_gif";
         m.text = text; // text holds the GIF URL/Keyword
         m.targetName = "Public Chat".equals(recipient) ? null : recipient;
+        return m;
+    }
+
+    // [MỚI] Voice Message for sending
+    public static Message voice(String base64Data, String recipient) {
+        Message m = new Message();
+        m.type = "Public Chat".equals(recipient) ? "voice" : "dm_voice";
+        m.targetName = "Public Chat".equals(recipient) ? null : recipient;
+        m.data = base64Data;
+        m.text = "[Tin nhắn thoại]"; // Nội dung hiển thị thay thế nếu client không hỗ trợ voice
         return m;
     }
 
@@ -99,10 +112,10 @@ public class Message {
         Message m = new Message();
         m.type = "history";
 
-        // Handle history items that might be GIFs (using a marker for now)
+        // Handle history items that might be GIFs
         if (text != null && text.startsWith("[GIF]:")) {
             m.type = "gif_history";
-            m.text = text.substring("[GIF]:".length()).trim(); // Store just the keyword/URL
+            m.text = text.substring("[GIF]:".length()).trim();
         } else {
             m.text = text;
         }
@@ -119,7 +132,7 @@ public class Message {
         // Handle DM history items that might be GIFs
         if (text != null && text.startsWith("[GIF]:")) {
             m.type = "dm_gif_history";
-            m.text = text.substring("[GIF]:".length()).trim(); // Store just the keyword/URL
+            m.text = text.substring("[GIF]:".length()).trim();
         } else {
             m.text = text;
         }

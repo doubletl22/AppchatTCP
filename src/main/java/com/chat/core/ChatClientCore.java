@@ -159,8 +159,21 @@ public class ChatClientCore {
     public void sendGif(String gifKeyword, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 
-        // Sử dụng Message.gif factory method mới để tạo tin nhắn loại "gif" hoặc "dm_gif"
         Message msgToSend = Message.gif(gifKeyword, recipient);
+
+        String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    /**
+     * [MỚI] Gửi tin nhắn Voice (Base64 Audio) lên Server.
+     */
+    public void sendVoice(String base64Data, String recipient) throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
+
+        // Sử dụng Message.voice factory method mới (cần thêm vào Message.java)
+        Message msgToSend = Message.voice(base64Data, recipient);
 
         String json = gson.toJson(msgToSend) + "\n";
         out.write(json.getBytes(StandardCharsets.UTF_8));

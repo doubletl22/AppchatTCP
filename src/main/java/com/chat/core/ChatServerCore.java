@@ -24,7 +24,6 @@ public class ChatServerCore extends Thread {
     private final DatabaseManager dbManager;
     private final ServerLogListener logListener;
 
-    // FIX: Khôi phục thứ tự tham số hàm tạo như code gốc (port, dbManager, logListener)
     public ChatServerCore(int port, DatabaseManager dbManager, ServerLogListener logListener) {
         this.port = port;
         this.dbManager = dbManager;
@@ -37,8 +36,8 @@ public class ChatServerCore extends Thread {
         if (running) return;
         serverSocket = new ServerSocket(port);
         running = true;
-        logListener.log("Server started on 0.0.0.0:" + port + ". Ready for authentication.");
-        this.start(); // Start the accept loop thread
+        logListener.log("Server started on port " + port + ". Ready for authentication.");
+        this.start(); // Bắt đầu luồng chấp nhận kết nối
     }
 
     public void stopServer() {
@@ -77,20 +76,29 @@ public class ChatServerCore extends Thread {
         }
     }
 
+    // --- XỬ LÝ BROADCAST (Gửi cho tất cả) ---
     public void broadcast(Message m) {
         String logText = null;
 
         if ("chat".equals(m.type)) {
             dbManager.storeMessage(m.name, m.text);
             logText = "[CHAT] " + m.name + ": " + m.text;
+
         } else if ("gif".equals(m.type)) {
-            dbManager.storeMessage(m.name, "[GIF]: " + m.text); // Lưu kèm marker
+            dbManager.storeMessage(m.name, "[GIF]: " + m.text);
             logText = "[GIF] " + m.name + ": " + m.text;
+
+        } else if ("voice".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn thoại công khai
+            // Lưu placeholder vào DB để không bị lỗi lịch sử, nhưng không lưu data quá lớn
+            dbManager.storeMessage(m.name, "[Tin nhắn thoại]");
+            logText = "[VOICE] " + m.name + " sent a voice message.";
+
         } else if ("system".equals(m.type)) {
             logText = m.text;
         }
 
-
+        // Gửi tin nhắn đến tất cả clients đang kết nối
         for (ClientConn c : new ArrayList<>(clients)) {
             try {
                 sendToClient(c, m);
@@ -104,50 +112,63 @@ public class ChatServerCore extends Thread {
         }
     }
 
+    // --- XỬ LÝ TIN NHẮN RIÊNG (Private Message) ---
     private void sendPrivateMessage(ClientConn sender, Message m) {
         String targetName = m.targetName;
         ClientConn target = clients.stream()
                 .filter(c -> targetName.equals(c.name))
                 .findFirst().orElse(null);
 
-        // Xác định format lưu trữ
+        // Chuẩn bị dữ liệu để lưu DB và Log
         String storedMessage = m.text;
         String logPrefix = "[DM] ";
-        String messageTypeToTarget = "dm";
-        String messageTypeToSender = "dm";
+
+        // Xác định loại tin nhắn để gửi đi đúng format
+        String msgTypeToTarget = "dm";
+        String msgTypeToSender = "dm";
 
         if ("dm_gif".equals(m.type)) {
             storedMessage = "[GIF]: " + m.text;
             logPrefix = "[DM GIF] ";
-            messageTypeToTarget = "dm_gif";
-            messageTypeToSender = "dm_gif";
+            msgTypeToTarget = "dm_gif";
+            msgTypeToSender = "dm_gif";
+        } else if ("dm_voice".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn thoại riêng tư
+            storedMessage = "[Tin nhắn thoại]";
+            logPrefix = "[DM VOICE] ";
+            msgTypeToTarget = "dm_voice";
+            msgTypeToSender = "dm_voice";
         }
 
+        // Lưu vào DB
         dbManager.storeDirectMessage(sender.name, targetName, storedMessage);
 
         if (target == null) {
-            sendToClient(sender, Message.system("Người dùng " + targetName + " không kết nối hoặc không tồn tại"));
+            sendToClient(sender, Message.system("Người dùng " + targetName + " không online."));
             return;
         }
 
-        // 1. Message for target
+        // 1. Gửi cho người nhận (Target)
         Message msgToTarget = new Message();
-        msgToTarget.type = messageTypeToTarget;
+        msgToTarget.type = msgTypeToTarget;
         msgToTarget.name = sender.name;
         msgToTarget.targetName = targetName;
         msgToTarget.text = m.text;
+        msgToTarget.data = m.data; // [QUAN TRỌNG] Chuyển tiếp dữ liệu âm thanh
 
-        // 2. Confirmation message for sender
+        // 2. Gửi xác nhận cho người gửi (Sender)
+        // Lưu ý: Client hiện tại đã có Local Echo nên gói này chủ yếu để xác nhận server đã xử lý
         Message msgToSender = new Message();
-        msgToSender.type = messageTypeToSender;
+        msgToSender.type = msgTypeToSender;
         msgToSender.name = "[TO " + targetName + "]";
         msgToSender.targetName = targetName;
         msgToSender.text = m.text;
+        // Không cần gửi lại data âm thanh cho người gửi để tiết kiệm băng thông
 
         sendToClient(target, msgToTarget);
         sendToClient(sender, msgToSender);
 
-        logListener.log(logPrefix + sender.name + " -> " + targetName + ": " + m.text);
+        logListener.log(logPrefix + sender.name + " -> " + targetName);
     }
 
     private void sendToClient(ClientConn client, Message m) {
@@ -166,6 +187,7 @@ public class ChatServerCore extends Thread {
         logListener.refreshClientList(clientNames);
     }
 
+    // --- LỚP QUẢN LÝ KẾT NỐI CLIENT (Nested Class) ---
     private class ClientConn extends Thread {
         final Socket socket;
         final BufferedReader reader;
@@ -184,46 +206,43 @@ public class ChatServerCore extends Thread {
         @Override
         public void run() {
             try {
-                // Authentication Loop
+                // --- Vòng lặp xác thực (Login/Register) ---
                 while (open && !authenticated) {
                     String line = reader.readLine();
                     if (line == null) { close(); return; }
 
-                    Message m = null;
+                    Message m;
                     try {
                         m = gson.fromJson(line, Message.class);
                     } catch (JsonSyntaxException ignore) {
-                        sendToClient(this, Message.authFailure("Invalid JSON format."));
                         continue;
                     }
 
-                    if (m == null || m.username == null || m.password == null) {
-                        sendToClient(this, Message.authFailure("Missing username or password."));
-                        continue;
-                    }
+                    if (m == null || m.type == null) continue;
 
                     if ("register".equals(m.type)) {
                         if (dbManager.registerUser(m.username, m.password)) {
-                            sendToClient(this, Message.authFailure("Registration successful. Please login now."));
+                            sendToClient(this, Message.authFailure("Đăng ký thành công. Hãy đăng nhập."));
                             logListener.log("User registered: " + m.username);
                         } else {
-                            sendToClient(this, Message.authFailure("Username already exists or registration failed."));
+                            sendToClient(this, Message.authFailure("Tên đăng nhập đã tồn tại."));
                         }
                     } else if ("login".equals(m.type)) {
                         if (dbManager.authenticateUser(m.username, m.password)) {
                             name = m.username;
                             authenticated = true;
                             sendToClient(this, Message.authSuccess(name));
-                            logListener.log("Client authenticated: " + name + " @ " + socket.getRemoteSocketAddress());
+                            logListener.log("Authenticated: " + name + " @ " + socket.getRemoteSocketAddress());
 
-                            // FIX: Sử dụng lại phương thức getChatHistory gốc
-                            List<Message> history = dbManager.getChatHistory(100);
+                            // Tải lịch sử chat cũ
+                            List<Message> history = dbManager.getChatHistory(50);
                             for (Message chatMsg : history) { sendToClient(this, chatMsg); }
                             sendToClient(this, Message.system("Chat history loaded."));
 
                             clients.add(this);
                             refreshClientList();
 
+                            // Gửi danh sách user online
                             List<String> currentNames = clients.stream()
                                     .map(c -> c.name)
                                     .filter(n -> !n.equals(name))
@@ -233,32 +252,34 @@ public class ChatServerCore extends Thread {
                             broadcast(Message.system(name + " joined the chat."));
                             break;
                         } else {
-                            sendToClient(this, Message.authFailure("Login failed: Invalid username or password."));
-                            logListener.log("Login attempt failed for: " + m.username);
+                            sendToClient(this, Message.authFailure("Sai tên đăng nhập hoặc mật khẩu."));
                         }
-                    } else {
-                        sendToClient(this, Message.authFailure("Must login or register first."));
                     }
                 }
 
-                // Main chat loop
+                // --- Vòng lặp chat chính ---
                 while (open && authenticated) {
                     String l = reader.readLine();
                     if (l == null) break;
                     try {
                         Message m = gson.fromJson(l, Message.class);
                         if (m != null) {
-                            // Cập nhật: Thêm "gif" vào điều kiện public chat
-                            if ("chat".equals(m.type) || "gif".equals(m.type)) {
+                            // 1. Xử lý Chat công khai (Text, GIF, Voice)
+                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type)) {
                                 Message outMsg = new Message();
                                 outMsg.type = m.type;
                                 outMsg.name = name;
                                 outMsg.text = m.text;
+                                outMsg.data = m.data; // [QUAN TRỌNG] Copy dữ liệu voice
                                 broadcast(outMsg);
-                                // Cập nhật: Thêm "dm_gif" vào điều kiện private chat
-                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type)) && m.targetName != null) {
+
+                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice)
+                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type))
+                                    && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);
+
+                                // 3. Xử lý yêu cầu lịch sử DM
                             } else if ("get_dm_history".equals(m.type) && m.targetName != null) {
                                 handleDirectHistoryRequest(this, m.targetName);
                             }
@@ -266,7 +287,7 @@ public class ChatServerCore extends Thread {
                     } catch (JsonSyntaxException ignore) {}
                 }
             } catch (IOException e) {
-                // Connection closed or error
+                // Connection error
             } finally {
                 close();
             }
@@ -280,27 +301,20 @@ public class ChatServerCore extends Thread {
             if (name != null) {
                 refreshClientList();
                 broadcast(Message.system(name + " left the chat."));
-                logListener.log("Client disconnected: " + name);
+                logListener.log("Disconnected: " + name);
             }
         }
     }
 
-    /**
-     * Xử lý yêu cầu lấy lịch sử DM từ client.
-     */
     private void handleDirectHistoryRequest(ClientConn client, String targetName) {
         try {
-            // FIX: Sử dụng phương thức getDirectMessageHistory gốc
             List<Message> history = dbManager.getDirectMessageHistory(client.name, targetName, 50);
-            sendToClient(client, Message.system("--- Lịch sử tin nhắn với " + targetName + " đã tải ---"));
+            sendToClient(client, Message.system("--- Lịch sử tin nhắn với " + targetName + " ---"));
             for (Message dmMsg : history) {
-                // dmMsg.type đã được set thành "dm_history" hoặc "dm_gif_history" trong DatabaseManager
                 sendToClient(client, dmMsg);
             }
-            logListener.log("[HISTORY] " + client.name + " requested DM history with " + targetName + " (" + history.size() + " messages)");
         } catch (Exception ex) {
-            logListener.log("Error loading DM history for " + client.name + ": " + ex.getMessage());
-            sendToClient(client, Message.system("Không thể tải lịch sử tin nhắn."));
+            logListener.log("Error loading DM history: " + ex.getMessage());
         }
     }
 }
