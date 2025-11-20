@@ -125,13 +125,7 @@ public class ClientViewModel {
     private void updateStatus() {
         if (statusUpdateListener != null) {
             String status;
-            if (authenticated) {
-                status = "Status: Logged in as " + userName;
-            } else if (connected) {
-                status = "Status: Connecting...";
-            } else {
-                status = "Trạng thái: Ngắt kết nối";
-            }
+            status = "Tên người dùng: " + userName;
             statusUpdateListener.accept(status);
         }
     }

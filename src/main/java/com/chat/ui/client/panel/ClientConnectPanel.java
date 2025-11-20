@@ -1,69 +1,110 @@
 package com.chat.ui.client.panel;
 
 import com.chat.model.ClientViewModel;
-import com.chat.ui.client.action.ConnectAction;
-import com.chat.ui.client.action.DisconnectAction;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class ClientConnectPanel extends JPanel {
+    // Các thành phần nhập liệu
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
-    private final JLabel statusLabel = new JLabel("Trạng thái: ");
-    private final JButton connectBtn = new JButton();
-    //ĐÃ XÓA: private final JButton disconnectBtn = new JButton();
+    private final JLabel statusLabel = new JLabel("Trạng thái: Chưa kết nối");
+    private final JButton connectBtn = new JButton("Kết nối");
+
+    // Thành phần điều khiển hiển thị
+    private final JButton toggleButton;
+    private final JPanel containerPanel; // Panel chứa form nhập liệu (để ẩn/hiện)
 
     private final ClientViewModel viewModel;
-    //ĐÃ THÊM VÀ KHẮC PHỤC LỖI KHÔNG KHỞI TẠO (Initialized)
     private final Action connectAction;
     private final Action disconnectAction;
 
     public ClientConnectPanel(ClientViewModel viewModel, Action connectAction, Action disconnectAction) {
         this.viewModel = viewModel;
-        this.connectAction = connectAction; //FIX: Khởi tạo connectAction
-        this.disconnectAction = disconnectAction; //FIX: Khởi tạo disconnectAction
+        this.connectAction = connectAction;
+        this.disconnectAction = disconnectAction;
 
-        // SỬA: Dùng BorderLayout để kiểm soát vị trí Status và Controls
+        // Thiết lập layout chính cho toàn bộ ClientConnectPanel
         setLayout(new BorderLayout());
-        setBorder(new EmptyBorder(5, 15, 5, 15));
+        setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        // 1. Status Panel (Bên trái)
-        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        // --- PHẦN 1: NÚT TOGGLE (Luôn hiển thị ở trên cùng) ---
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        toggleButton = new JButton("▼ Cấu hình kết nối");
+        toggleButton.setBorderPainted(false);
+        toggleButton.setContentAreaFilled(false);
+        toggleButton.setFocusPainted(false);
+        toggleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // Sự kiện: Bấm nút thì gọi hàm toggle
+        toggleButton.addActionListener(e -> toggleContainerPanel());
+
+        headerPanel.add(toggleButton);
+        add(headerPanel, BorderLayout.NORTH);
+
+        // --- PHẦN 2: CONTAINER PANEL (Chứa form, sẽ bị ẩn/hiện) ---
+        containerPanel = new JPanel(new BorderLayout());
+        containerPanel.setBorder(new EmptyBorder(5, 10, 5, 10));
+
+        // 2a. Status (Bên trái)
+        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         statusPanel.add(statusLabel);
-        add(statusPanel, BorderLayout.WEST);
+        containerPanel.add(statusPanel, BorderLayout.WEST);
 
-        // 2. Controls Panel (Bên phải)
-        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-
-        // Khởi tạo nút là Connect
-        connectBtn.setAction(connectAction);
-        connectBtn.setText("Kết nối");
+        // 2b. Controls (Bên phải: Host, Port, Button)
+        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
 
         controlsPanel.add(new JLabel("Host:"));
-        hostField.setColumns(8);
-        controlsPanel.add(hostField);
+        hostField.setColumns(10);
+        controlsPanel.add(hostField); // Đã thêm Host field vào giao diện
+
         controlsPanel.add(new JLabel("Port:"));
         portField.setColumns(4);
         controlsPanel.add(portField);
+
+        // Cài đặt Action cho nút Connect
+        connectBtn.setAction(connectAction);
+        connectBtn.setText("Kết nối"); // Set text lại vì Action có thể ghi đè
         controlsPanel.add(connectBtn);
 
-        add(controlsPanel, BorderLayout.EAST);
+        containerPanel.add(controlsPanel, BorderLayout.EAST);
 
-        // Liên kết View với Model
+        // Thêm containerPanel vào giữa
+        add(containerPanel, BorderLayout.CENTER);
+
+        // Mặc định ẩn form đi lúc khởi tạo
+        containerPanel.setVisible(false);
+
+        // --- LIÊN KẾT MODEL ---
         viewModel.onStatusUpdate(this::setStatusLabel);
         viewModel.onStatusUpdate(this::updateButtonStates);
     }
 
-    public void setStatusLabel(String status) {
-        statusLabel.setText(status);
+    // Logic ẩn hiện form
+    private void toggleContainerPanel() {
+        boolean isVisible = containerPanel.isVisible();
+
+        // Đảo ngược trạng thái
+        containerPanel.setVisible(!isVisible);
+
+        // Đổi text nút bấm
+        if (!isVisible) {
+            toggleButton.setText("▲ Ẩn cấu hình");
+        } else {
+            toggleButton.setText("▼ Cấu hình kết nối");
+        }
+
+        // Cập nhật giao diện ngay lập tức
+        revalidate();
+        repaint();
     }
 
-    // ⭐️ LOGIC MỚI: Xử lý nút Connect/Disconnect duy nhất
+    public void setStatusLabel(String status) {
+        statusLabel.setText("Trạng thái: " + status);
+    }
+
     private void updateButtonStates(String status) {
         boolean connected = viewModel.isConnected();
-
         connectBtn.setEnabled(true);
 
         if (connected) {
@@ -71,16 +112,13 @@ public class ClientConnectPanel extends JPanel {
             connectBtn.setText("Ngắt kết nối");
             hostField.setEnabled(false);
             portField.setEnabled(false);
-            // Thêm màu sắc nhấn (Accent Color) cho nút Ngắt kết nối (FlatLaf)
             connectBtn.putClientProperty("JButton.buttonType", "danger");
         } else {
             connectBtn.setAction(connectAction);
             connectBtn.setText("Kết nối");
             hostField.setEnabled(true);
             portField.setEnabled(true);
-            // Thiết lập nút mặc định (Primary button) cho Connect (FlatLaf)
             connectBtn.putClientProperty("JButton.buttonType", "default");
-            connectBtn.putClientProperty("JButton.defaultButtonFollowsState", true);
         }
     }
 

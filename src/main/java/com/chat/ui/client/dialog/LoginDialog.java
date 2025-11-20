@@ -22,12 +22,6 @@ public class LoginDialog extends JDialog {
         setLayout(new GridLayout(6, 2, 8, 8));
         ((JPanel)getContentPane()).setBorder(new EmptyBorder(20, 15, 15, 15));// đổi thông số
 
-        //Thêm host và port
-        add(new JLabel("Host:"));
-        add(hostField);
-        add(new JLabel("Port:"));
-        add(portField);
-
         add(new JLabel("Tên đăng nhập:"));
         add(usernameField);
         add(new JLabel("Mật khẩu:"));

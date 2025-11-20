@@ -7,6 +7,7 @@
 - **Client**: kết nối/ngắt, soạn/gửi, hiển thị chat & system.
 
 ## Yêu cầu
+- JDK 25
 - Java 17+
 - Maven 3+
 - Chạy trên Intellij
