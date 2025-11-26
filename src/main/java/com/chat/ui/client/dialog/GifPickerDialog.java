@@ -1,67 +1,114 @@
 package com.chat.ui.client.dialog;
 
+import com.chat.service.GifService;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class GifPickerDialog extends JDialog {
-    // Danh sách GIF mẫu (sau này bạn có thể thay bằng API Giphy thật)
-    private static final Map<String, String> SAMPLE_GIFS = new HashMap<>();
-    static {
-        SAMPLE_GIFS.put("Hello", "https://media.giphy.com/media/Cmr1OMJ2FN0B2/giphy.gif");
-        SAMPLE_GIFS.put("Happy", "https://media.giphy.com/media/chzz1FQgqhytWRWbp3/giphy.gif");
-        SAMPLE_GIFS.put("Cry", "https://media.giphy.com/media/OPU6wzx8JrHna/giphy.gif");
-        SAMPLE_GIFS.put("Laugh", "https://media.giphy.com/media/9t6xpYZ9npJbG/giphy.gif");
-        SAMPLE_GIFS.put("Thumbs Up", "https://media.giphy.com/media/XreQmk7ETCQtu/giphy.gif");
-        SAMPLE_GIFS.put("Party", "https://media.giphy.com/media/3o7qDEq2bMbcbPRQ2c/giphy.gif");
-        SAMPLE_GIFS.put("Dance", "https://media.giphy.com/media/l3V0lsGtTMSB5YNgc/giphy.gif");
-        SAMPLE_GIFS.put("Bye", "https://media.giphy.com/media/26u4b45b8adiRdmr6/giphy.gif");
-    }
+    private final GifService gifService = new GifService();
+    private final JPanel gridPanel;
+    private final Consumer<String> onGifSelected;
+    private final JScrollPane scrollPane;
 
     public GifPickerDialog(JFrame parent, Consumer<String> onGifSelected) {
-        super(parent, "Chọn GIF", true);
-        setLayout(new BorderLayout());
-        setSize(500, 400);
+        super(parent, "Kho GIF Online (Tenor)", true);
+        this.onGifSelected = onGifSelected;
+        setLayout(new BorderLayout(10, 10));
+        setSize(620, 500);
         setLocationRelativeTo(parent);
+        ((JPanel)getContentPane()).setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        JPanel gridPanel = new JPanel(new GridLayout(0, 2, 5, 5)); // Lưới 2 cột
+        // --- 1. THANH TÌM KIẾM ---
+        JPanel searchPanel = new JPanel(new BorderLayout(10, 0));
+        JTextField searchField = new JTextField();
+        searchField.putClientProperty("JTextField.placeholderText", "Tìm kiếm GIF (ví dụ: haha, cute cat)...");
+        searchField.putClientProperty("Component.arc", 10);
+        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
-        SAMPLE_GIFS.forEach((name, url) -> {
-            JPanel item = createGifItem(name, url, onGifSelected);
-            gridPanel.add(item);
-        });
+        JButton searchBtn = new JButton("Tìm");
+        searchBtn.putClientProperty("JButton.buttonType", "roundRect");
 
-        JScrollPane scrollPane = new JScrollPane(gridPanel);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        // Sự kiện tìm kiếm
+        searchBtn.addActionListener(e -> loadGifs(searchField.getText()));
+        searchField.addActionListener(e -> loadGifs(searchField.getText())); // Enter để tìm
+
+        searchPanel.add(searchField, BorderLayout.CENTER);
+        searchPanel.add(searchBtn, BorderLayout.EAST);
+
+        add(searchPanel, BorderLayout.NORTH);
+
+        // --- 2. GRID HIỂN THỊ ẢNH ---
+        // Grid 3 cột, khoảng cách 10px
+        gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        gridPanel.setBackground(Color.WHITE);
+
+        scrollPane = new JScrollPane(gridPanel);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+
         add(scrollPane, BorderLayout.CENTER);
 
-        JButton closeBtn = new JButton("Đóng");
-        closeBtn.addActionListener(e -> setVisible(false));
-        add(closeBtn, BorderLayout.SOUTH);
+        // Load mặc định (Trending) khi mở lên
+        loadGifs("");
     }
 
-    private JPanel createGifItem(String name, String urlStr, Consumer<String> onSelect) {
+    private void loadGifs(String query) {
+        // Hiển thị trạng thái đang tải
+        gridPanel.removeAll();
+        gridPanel.add(new JLabel("Đang tải...", SwingConstants.CENTER));
+        gridPanel.revalidate();
+        gridPanel.repaint();
+
+        // Chạy ngầm để không đơ giao diện
+        new Thread(() -> {
+            List<String> urls;
+            if (query == null || query.trim().isEmpty()) {
+                urls = gifService.getTrendingGifs(21); // Lấy 21 ảnh hot
+            } else {
+                urls = gifService.searchGifs(query, 21); // Tìm kiếm
+            }
+
+            SwingUtilities.invokeLater(() -> {
+                gridPanel.removeAll();
+
+                if (urls.isEmpty()) {
+                    gridPanel.add(new JLabel("Không tìm thấy ảnh nào!", SwingConstants.CENTER));
+                } else {
+                    for (String url : urls) {
+                        JPanel item = createGifItem(url);
+                        gridPanel.add(item);
+                    }
+                }
+                gridPanel.revalidate();
+                gridPanel.repaint();
+            });
+        }).start();
+    }
+
+    private JPanel createGifItem(String urlStr) {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        panel.setBackground(Color.WHITE);
+        panel.setBackground(Color.LIGHT_GRAY);
         panel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // Kích thước cố định cho mỗi ô ảnh
+        panel.setPreferredSize(new Dimension(180, 120));
 
-        JLabel nameLabel = new JLabel(name, SwingConstants.CENTER);
         JLabel imageLabel = new JLabel("Loading...", SwingConstants.CENTER);
-        imageLabel.setPreferredSize(new Dimension(150, 120));
+        panel.add(imageLabel, BorderLayout.CENTER);
 
-        // Tải ảnh thumbnail (bất đồng bộ để không đơ UI)
+        // Tải ảnh thumbnail
         new Thread(() -> {
             try {
                 URL url = new URL(urlStr);
                 ImageIcon icon = new ImageIcon(url);
-                // Scale ảnh nhỏ lại cho thumbnail
-                Image img = icon.getImage().getScaledInstance(150, 120, Image.SCALE_DEFAULT);
+                // Resize ảnh cho vừa khung grid (180x120)
+                Image img = icon.getImage().getScaledInstance(180, 120, Image.SCALE_DEFAULT);
                 ImageIcon scaledIcon = new ImageIcon(img);
 
                 SwingUtilities.invokeLater(() -> {
@@ -69,19 +116,26 @@ public class GifPickerDialog extends JDialog {
                     imageLabel.setIcon(scaledIcon);
                 });
             } catch (Exception e) {
-                SwingUtilities.invokeLater(() -> imageLabel.setText("Lỗi ảnh"));
+                SwingUtilities.invokeLater(() -> imageLabel.setText("Lỗi"));
             }
         }).start();
 
-        panel.add(imageLabel, BorderLayout.CENTER);
-        panel.add(nameLabel, BorderLayout.SOUTH);
-
-        // Xử lý sự kiện click chọn GIF
+        // Click vào ảnh để chọn
         panel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                onSelect.accept(urlStr); // Trả về URL của ảnh
+                onGifSelected.accept(urlStr);
                 setVisible(false); // Đóng dialog
+            }
+
+            // Hiệu ứng Hover
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                panel.setBorder(BorderFactory.createLineBorder(new Color(0, 122, 255), 3));
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                panel.setBorder(null);
             }
         });
 
