@@ -2,9 +2,9 @@ package com.chat.ui.client.panel;
 
 import com.chat.model.ClientViewModel;
 import com.chat.model.Message;
-import com.chat.ui.client.ClientController; // Import Controller để gửi voice
+import com.chat.ui.client.ClientController;
 import com.chat.ui.client.dialog.GifPickerDialog;
-import com.chat.util.AudioUtils; // Import tiện ích xử lý âm thanh
+import com.chat.util.AudioUtils;
 import com.chat.util.UiUtils;
 
 import javax.swing.*;
@@ -21,21 +21,20 @@ public class ClientChatPanel extends JPanel {
     private final JButton sendBtn = new JButton();
     private final JButton emojiBtn = new JButton("😊");
     private final JButton gifBtn = new JButton("GIF");
-
-    // [MỚI] Thêm nút Mic và bộ ghi âm
     private final JButton micBtn = new JButton("🎤");
+
     private final AudioUtils audioRecorder = new AudioUtils();
-
     private final ClientViewModel viewModel;
-
-    // [MỚI] Biến Controller để gọi hàm gửi tin nhắn thoại
     private ClientController controller;
 
     public ClientChatPanel(ClientViewModel viewModel, Action sendAction) {
         this.viewModel = viewModel;
-        setLayout(new BorderLayout(5, 5));
+        setLayout(new BorderLayout(0, 0));
+        setBackground(UIManager.getColor("Panel.background"));
 
-        // --- 1. Khu vực hiển thị chat (Chat Area) ---
+        // --- 1. Khu vực hiển thị chat ---
+        chatDisplayPanel.setBackground(UIManager.getColor("Panel.background"));
+
         JScrollPane chatScroll = new JScrollPane(chatDisplayPanel);
         chatScroll.getVerticalScrollBar().setUnitIncrement(16);
         chatScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
@@ -43,94 +42,84 @@ public class ClientChatPanel extends JPanel {
         add(chatScroll, BorderLayout.CENTER);
 
         // --- 2. Khu vực nhập liệu (Input Panel) ---
-        JPanel bottomInput = new JPanel(new BorderLayout(5, 5));
-        bottomInput.setBorder(new EmptyBorder(5, 10, 10, 10));
+        JPanel bottomInput = new JPanel(new BorderLayout(10, 0));
+        bottomInput.setBorder(new EmptyBorder(15, 20, 15, 20));
+        bottomInput.setBackground(UIManager.getColor("Panel.background"));
 
-        // Cấu hình nút Gửi
-        sendBtn.setAction(sendAction);
-        sendBtn.putClientProperty("JButton.buttonType", "roundRect"); // FlatLaf style
-        sendBtn.setText("Gửi");
-        sendBtn.setPreferredSize(new Dimension(80, 30));
-
-        // Gắn Action cho ô nhập liệu (Enter để gửi)
-        inputField.addActionListener(sendAction);
+        // -- Cấu hình Input Field --
         inputField.setAction(sendAction);
+        inputField.putClientProperty("JTextField.placeholderText", "Nhập tin nhắn...");
+        inputField.putClientProperty("Component.arc", 999);
+        inputField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        inputField.setBorder(BorderFactory.createCompoundBorder(
+                inputField.getBorder(),
+                BorderFactory.createEmptyBorder(2, 10, 2, 5)
+        ));
 
-        bottomInput.add(inputField, BorderLayout.CENTER);
+        // -- Các nút chức năng --
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        actionPanel.setOpaque(false);
 
-        // --- 3. Thanh công cụ (Emoji, GIF, Mic, Send) ---
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        styleIconButton(emojiBtn);
+        styleIconButton(gifBtn);
+        styleIconButton(micBtn);
 
-        // Cấu hình nút Emoji
-        emojiBtn.setFont(emojiBtn.getFont().deriveFont(18f));
-        emojiBtn.setPreferredSize(new Dimension(40, 30));
         emojiBtn.addActionListener(e -> showEmojiPopup(emojiBtn));
-
-        // Cấu hình nút GIF
-        gifBtn.setFont(gifBtn.getFont().deriveFont(10f));
-        gifBtn.setPreferredSize(new Dimension(50, 30));
         gifBtn.addActionListener(e -> showGifPicker());
 
-        // [MỚI] Cấu hình nút Mic (Ghi âm)
-        micBtn.setFont(micBtn.getFont().deriveFont(14f));
-        micBtn.setPreferredSize(new Dimension(50, 30));
         micBtn.setToolTipText("Giữ chuột để nói, thả ra để gửi");
-
-        // Sự kiện nhấn giữ Mic
         micBtn.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 try {
-                    // Bắt đầu ghi âm
-                    micBtn.setBackground(Color.RED);
-                    micBtn.setForeground(Color.WHITE);
+                    micBtn.setForeground(Color.RED);
                     audioRecorder.startRecording();
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(ClientChatPanel.this, "Lỗi Mic: " + ex.getMessage());
-                    ex.printStackTrace();
                 }
             }
-
             @Override
             public void mouseReleased(MouseEvent e) {
-                // Kết thúc ghi âm
-                micBtn.setBackground(null);
-                micBtn.setForeground(null);
+                micBtn.setForeground(UIManager.getColor("Label.foreground"));
                 String base64Sound = audioRecorder.stopRecording();
-
-                // Kiểm tra và gửi dữ liệu
-                if (base64Sound != null && !base64Sound.isEmpty()) {
-                    if (controller != null) {
-                        controller.handleSendVoice(base64Sound);
-                    } else {
-                        System.err.println("Controller chưa được khởi tạo (null)!");
-                    }
+                if (base64Sound != null && !base64Sound.isEmpty() && controller != null) {
+                    controller.handleSendVoice(base64Sound);
                 }
             }
         });
 
-        buttonPanel.add(emojiBtn);
-        buttonPanel.add(gifBtn);
-        buttonPanel.add(micBtn); // Thêm nút Mic vào giữa
-        buttonPanel.add(sendBtn);
+        actionPanel.add(micBtn);
+        actionPanel.add(gifBtn);
+        actionPanel.add(emojiBtn);
 
-        bottomInput.add(buttonPanel, BorderLayout.EAST);
+        // -- Nút Gửi --
+        sendBtn.setAction(sendAction);
+        sendBtn.setText("Gửi");
+        sendBtn.putClientProperty("JButton.buttonType", "roundRect");
+        sendBtn.setBackground(UIManager.getColor("Component.accentColor"));
+        sendBtn.setForeground(Color.WHITE);
+        sendBtn.setFont(sendBtn.getFont().deriveFont(Font.BOLD));
+        sendBtn.setPreferredSize(new Dimension(80, 36));
+
+        bottomInput.add(actionPanel, BorderLayout.WEST);
+        bottomInput.add(inputField, BorderLayout.CENTER);
+        bottomInput.add(sendBtn, BorderLayout.EAST);
+
         add(bottomInput, BorderLayout.SOUTH);
     }
 
-    // [MỚI] Hàm setter để Inject Controller từ bên ngoài (ClientView)
-    public void setController(ClientController controller) {
-        this.controller = controller;
+    private void styleIconButton(JButton btn) {
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFont(btn.getFont().deriveFont(18f));
+        btn.setMargin(new Insets(0, 0, 0, 0));
     }
 
-    public String getInputText() {
-        return inputField.getText();
-    }
-
-    public void clearInputField() {
-        inputField.setText("");
-    }
-
+    public void setController(ClientController controller) { this.controller = controller; }
+    public String getInputText() { return inputField.getText(); }
+    public void clearInputField() { inputField.setText(""); }
     public void clearChatDisplay() {
         UiUtils.invokeLater(() -> {
             chatDisplayPanel.removeAll();
@@ -139,7 +128,6 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // --- Logic GIF ---
     private void showGifPicker() {
         JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
         GifPickerDialog dialog = new GifPickerDialog(parentFrame, (selectedUrl) -> {
@@ -149,49 +137,38 @@ public class ClientChatPanel extends JPanel {
         dialog.setVisible(true);
     }
 
-    // --- Logic Emoji ---
     private void showEmojiPopup(Component invoker) {
         JPopupMenu popup = new JPopupMenu();
         String[] emojis = {"😀", "😂", "🥰", "😎", "😭", "👍", "👎", "❤️", "🔥", "🎉"};
-        JPanel panel = new JPanel(new GridLayout(2, 5, 2, 2));
+        JPanel panel = new JPanel(new GridLayout(2, 5, 5, 5));
+        panel.setBorder(new EmptyBorder(5, 5, 5, 5));
 
         for (String emoji : emojis) {
-            JButton btn = createEmojiButton(emoji, popup);
+            JButton btn = new JButton(emoji);
+            btn.setFont(btn.getFont().deriveFont(20f));
+            btn.setFocusable(false);
+            btn.setBorderPainted(false);
+            btn.setContentAreaFilled(false);
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.addActionListener(e -> {
+                inputField.replaceSelection(emoji);
+                inputField.requestFocusInWindow();
+                popup.setVisible(false);
+            });
             panel.add(btn);
         }
         popup.add(panel);
-        popup.show(invoker, 0, invoker.getHeight());
+        popup.show(invoker, 0, -popup.getPreferredSize().height);
     }
 
-    private JButton createEmojiButton(String emoji, JPopupMenu popup) {
-        JButton btn = new JButton(emoji);
-        btn.setFont(btn.getFont().deriveFont(20f));
-        btn.setToolTipText(emoji);
-        btn.setFocusable(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.addActionListener(e -> {
-            inputField.replaceSelection(emoji);
-            inputField.requestFocusInWindow();
-            popup.setVisible(false);
-        });
-        return btn;
-    }
-
-    // --- Logic Hiển thị tin nhắn (Text, GIF, Voice) ---
     public void appendMessage(Message m, String currentUserName) {
-        // Kiểm tra loại tin nhắn
         boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
         boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
                 "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
 
-        // Xác định người gửi là chính mình hay người khác
         boolean isSelf;
-        if (m.name != null && m.name.startsWith("[TO ")) {
-            isSelf = true;
-        } else {
-            isSelf = m.name != null && m.name.equals(currentUserName);
-        }
+        if (m.name != null && m.name.startsWith("[TO ")) isSelf = true;
+        else isSelf = m.name != null && m.name.equals(currentUserName);
 
         UiUtils.invokeLater(() -> {
             if ("system".equals(m.type)) {
@@ -200,32 +177,22 @@ public class ClientChatPanel extends JPanel {
                 chatDisplayPanel.add(systemLabel, gbc);
             } else {
                 JPanel messageBubble;
+                if (isVoice) messageBubble = createVoiceBubble(m.name, m.data, isSelf);
+                else if (isGif) messageBubble = createGifBubble(m.name, m.text, isSelf);
+                else messageBubble = createChatBubble(m.name, m.text, isSelf);
 
-                if (isVoice) {
-                    // [MỚI] Tạo bong bóng tin nhắn thoại
-                    messageBubble = createVoiceBubble(m.name, m.data, isSelf);
-                } else if (isGif) {
-                    // Tạo bong bóng GIF
-                    messageBubble = createGifBubble(m.name, m.text, isSelf);
-                } else {
-                    // Tạo bong bóng Text thường
-                    messageBubble = createChatBubble(m.name, m.text, isSelf);
-                }
-
-                // Căn chỉnh trái/phải
-                JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 5));
-                alignmentWrapper.setBackground(chatDisplayPanel.getBackground());
+                JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 2));
+                alignmentWrapper.setOpaque(false);
                 alignmentWrapper.add(messageBubble);
 
                 GridBagConstraints gbc = createGBC(isSelf ? GridBagConstraints.EAST : GridBagConstraints.WEST);
                 chatDisplayPanel.add(alignmentWrapper, gbc);
             }
-
             updateFiller();
             chatDisplayPanel.revalidate();
             chatDisplayPanel.repaint();
 
-            // Tự động cuộn xuống cuối
+            // Auto scroll
             JScrollPane scrollPane = (JScrollPane) SwingUtilities.getAncestorOfClass(JScrollPane.class, chatDisplayPanel);
             if (scrollPane != null) {
                 JScrollBar vertical = scrollPane.getVerticalScrollBar();
@@ -234,103 +201,147 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // [MỚI] Hàm tạo bong bóng Voice Chat
+    // [Bubble] Voice
     private JPanel createVoiceBubble(String sender, String base64Audio, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-        bubblePanel.putClientProperty("FlatPanel.arc", 16);
-        bubblePanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        bubblePanel.putClientProperty("FlatPanel.arc", 18);
+        bubblePanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         bubblePanel.setOpaque(true);
+        bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65));
 
-        Color bgColor = isSelf ? new Color(0, 137, 255) : new Color(230, 230, 230);
-        bubblePanel.setBackground(bgColor);
-
-        // Hiển thị tên người gửi
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
             senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
-            senderLabel.setForeground(UIManager.getColor("text.gray"));
+            senderLabel.setForeground(new Color(180, 180, 180));
             bubblePanel.add(senderLabel);
         }
 
-        // Tính dung lượng hiển thị (ước lượng)
-        String sizeText = "0KB";
-        if (base64Audio != null) {
-            int kb = base64Audio.length() / 1024; // Base64 length roughly maps to size
-            sizeText = kb + " KB";
-        }
+        String sizeText = "Voice";
+        if (base64Audio != null) sizeText = (base64Audio.length() / 1024) + " KB";
 
-        // Nút Play
-        JButton playBtn = new JButton("▶ Voice Chat (" + sizeText + ")");
+        JButton playBtn = new JButton("▶ " + sizeText);
         playBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        playBtn.putClientProperty("JButton.buttonType", "roundRect");
         playBtn.addActionListener(e -> {
-            if (base64Audio != null) {
-                AudioUtils.playBase64Audio(base64Audio);
-            }
+            if (base64Audio != null) AudioUtils.playBase64Audio(base64Audio);
         });
 
         bubblePanel.add(playBtn);
         return bubblePanel;
     }
 
+    // [Bubble] GIF - ĐÃ FIX LỖI RESIZE & ANIMATION
     private JPanel createGifBubble(String sender, String gifUrl, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-        bubblePanel.putClientProperty("FlatPanel.arc", 16);
-        bubblePanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        bubblePanel.putClientProperty("FlatPanel.arc", 18);
+        bubblePanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         bubblePanel.setOpaque(true);
+        bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65));
 
-        Color bgColor = isSelf ? new Color(0, 137, 255) : new Color(230, 230, 230);
-        bubblePanel.setBackground(bgColor);
+        if (!isSelf && sender != null && !sender.equals("Public Chat")) {
+            JLabel senderLabel = new JLabel(sender);
+            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
+            senderLabel.setForeground(new Color(180, 180, 180));
+            senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 2, 0));
+            bubblePanel.add(senderLabel);
+        }
 
-        JLabel gifLabel = new JLabel("Loading GIF...", SwingConstants.CENTER);
-        gifLabel.setPreferredSize(new Dimension(200, 150));
+        // Placeholder loading
+        JLabel loadingLabel = new JLabel("Loading...", SwingConstants.CENTER);
+        loadingLabel.setPreferredSize(new Dimension(200, 150));
+        loadingLabel.setForeground(Color.LIGHT_GRAY);
 
         new Thread(() -> {
             try {
                 URL url = new URL(gifUrl);
                 ImageIcon icon = new ImageIcon(url);
+
+                // [QUAN TRỌNG] Chờ ảnh tải xong hoàn toàn để lấy kích thước thật
+                while (icon.getImageLoadStatus() == MediaTracker.LOADING) {
+                    Thread.sleep(50);
+                }
+
+                int w = icon.getIconWidth();
+                int h = icon.getIconHeight();
+
+                // Nếu lỗi tải ảnh
+                if (w <= 0 || h <= 0) {
+                    SwingUtilities.invokeLater(() -> loadingLabel.setText("❌ Lỗi ảnh"));
+                    return;
+                }
+
+                // Tính toán tỷ lệ resize (Max 200px)
+                int maxWidth = 200;
+                int maxHeight = 200;
+                int newW = w;
+                int newH = h;
+
+                if (w > maxWidth || h > maxHeight) {
+                    float ratio = (float) w / h;
+                    if (ratio > 1) { newW = maxWidth; newH = (int) (maxWidth / ratio); }
+                    else { newH = maxHeight; newW = (int) (maxHeight * ratio); }
+                }
+
+                // Biến final để dùng trong inner class
+                int finalW = newW;
+                int finalH = newH;
+                Image img = icon.getImage();
+
                 SwingUtilities.invokeLater(() -> {
-                    gifLabel.setText("");
-                    gifLabel.setIcon(icon);
+                    bubblePanel.remove(loadingLabel);
+
+                    // Dùng Custom Panel để vẽ lại ảnh (Scale + Giữ Animation)
+                    JPanel imgPanel = new JPanel() {
+                        @Override
+                        protected void paintComponent(Graphics g) {
+                            super.paintComponent(g);
+                            Graphics2D g2 = (Graphics2D) g;
+                            // Bật khử răng cưa để ảnh mịn khi thu nhỏ
+                            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                            g2.drawImage(img, 0, 0, finalW, finalH, this);
+                        }
+
+                        @Override
+                        public Dimension getPreferredSize() {
+                            return new Dimension(finalW, finalH);
+                        }
+                    };
+                    imgPanel.setOpaque(false); // Nền trong suốt
+
+                    bubblePanel.add(imgPanel);
                     bubblePanel.revalidate();
                     bubblePanel.repaint();
+
+                    // Cập nhật lại scroll
+                    if (chatDisplayPanel.getParent() != null) {
+                        chatDisplayPanel.getParent().validate();
+                    }
                 });
             } catch (Exception e) {
-                SwingUtilities.invokeLater(() -> {
-                    gifLabel.setText("❌ Lỗi ảnh");
-                    gifLabel.setForeground(Color.RED);
-                });
+                SwingUtilities.invokeLater(() -> loadingLabel.setText("❌ Lỗi URL"));
             }
         }).start();
 
-        if (!isSelf && sender != null && !sender.equals("Public Chat")) {
-            JLabel senderLabel = new JLabel(sender);
-            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
-            senderLabel.setForeground(UIManager.getColor("text.gray"));
-            bubblePanel.add(senderLabel);
-        }
-
-        bubblePanel.add(gifLabel);
+        bubblePanel.add(loadingLabel);
         return bubblePanel;
     }
 
+    // [Bubble] Text
     private JPanel createChatBubble(String sender, String text, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-        bubblePanel.putClientProperty("FlatPanel.arc", 16);
-        bubblePanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        bubblePanel.putClientProperty("FlatPanel.arc", 18);
+        bubblePanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         bubblePanel.setOpaque(true);
-
-        Color bgColor = isSelf ? UIManager.getColor("Component.accentColor") : UIManager.getColor("Panel.background");
-        Color fgColor = isSelf ? Color.WHITE : UIManager.getColor("Label.foreground");
-
-        bubblePanel.setBackground(bgColor);
+        bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65));
 
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
-            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
-            senderLabel.setForeground(UIManager.getColor("text.gray"));
+            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 11f));
+            senderLabel.setForeground(new Color(200, 200, 200));
+            senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
             bubblePanel.add(senderLabel);
         }
 
@@ -339,11 +350,12 @@ public class ClientChatPanel extends JPanel {
         textPane.setEditable(false);
         textPane.setOpaque(false);
         textPane.setBackground(null);
-        textPane.setForeground(fgColor);
+        textPane.setForeground(isSelf ? Color.WHITE : UIManager.getColor("Label.foreground"));
         textPane.setBorder(null);
-        textPane.setFont(textPane.getFont().deriveFont(13f));
-        textPane.setPreferredSize(new Dimension(300, textPane.getPreferredSize().height));
-        textPane.setMaximumSize(new Dimension(300, Integer.MAX_VALUE));
+        textPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        textPane.setPreferredSize(new Dimension(Math.min(300, getFontMetrics(textPane.getFont()).stringWidth(text) + 20), textPane.getPreferredSize().height));
+        textPane.setSize(new Dimension(300, Short.MAX_VALUE));
 
         bubblePanel.add(textPane);
         return bubblePanel;
@@ -355,7 +367,7 @@ public class ClientChatPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
         gbc.anchor = anchor;
-        gbc.insets = new Insets(1, 5, 1, 5);
+        gbc.insets = new Insets(2, 5, 2, 5);
         return gbc;
     }
 
@@ -364,7 +376,6 @@ public class ClientChatPanel extends JPanel {
         fillerGBC.gridwidth = GridBagConstraints.REMAINDER;
         fillerGBC.weighty = 1.0;
         fillerGBC.fill = GridBagConstraints.VERTICAL;
-
         Component verticalGlue = null;
         if (chatDisplayPanel.getComponentCount() > 0) {
             Component lastComponent = chatDisplayPanel.getComponent(chatDisplayPanel.getComponentCount() - 1);
@@ -373,10 +384,7 @@ public class ClientChatPanel extends JPanel {
                 chatDisplayPanel.remove(verticalGlue);
             }
         }
-
-        if (verticalGlue == null) {
-            verticalGlue = Box.createVerticalGlue();
-        }
+        if (verticalGlue == null) verticalGlue = Box.createVerticalGlue();
         chatDisplayPanel.add(verticalGlue, fillerGBC);
     }
 }
