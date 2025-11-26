@@ -8,6 +8,7 @@ import com.chat.ui.client.dialog.LoginDialog;
 import com.chat.util.UiUtils;
 
 import javax.swing.*;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -99,6 +100,40 @@ public class ClientController implements ClientStatusListener {
         }
     }
 
+    // [MỚI] Hàm xử lý gửi Ảnh từ file
+    public void handleSendImage(File imageFile) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        String userName = viewModel.getUserName();
+
+        // Chạy luồng riêng để nén ảnh không làm đơ giao diện
+        new Thread(() -> {
+            try {
+                // Sử dụng ImageUtils để nén và chuyển đổi sang Base64
+                String base64 = com.chat.util.ImageUtils.encodeImageToBase64(imageFile);
+                if (base64 == null) return;
+
+                // Gửi qua mạng (Hàm này cần được thêm vào ChatClientCore)
+                clientCore.sendImage(base64, recipient);
+
+                // Local Echo (Hiển thị ngay lập tức trên máy mình)
+                UiUtils.invokeLater(() -> {
+                    Message m = Message.image(base64, recipient);
+                    m.name = userName;
+                    m.isSelf = true;
+                    // Nếu là DM, cần chỉnh lại type để hiển thị đúng bong bóng chat
+                    if (!"Public Chat".equals(recipient)) {
+                        m.type = "dm_image";
+                    }
+                    viewModel.notifyMessageReceived(m);
+                });
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                viewModel.notifyMessageReceived(Message.system("[ERROR Gửi Ảnh] " + ex.getMessage()));
+            }
+        }).start();
+    }
+
     public void requestHistory(String targetUser) {
         try {
             clientCore.requestDirectHistory(targetUser);
@@ -176,9 +211,11 @@ public class ClientController implements ClientStatusListener {
         UiUtils.invokeLater(() -> {
             String senderName = m.name != null ? m.name : "Hệ thống";
             boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
+            boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
 
-            if (isVoice && !parentFrame.isFocused()) {
-                JOptionPane.showMessageDialog(parentFrame, "Bạn có tin nhắn thoại mới từ " + senderName, "Tin nhắn mới", JOptionPane.INFORMATION_MESSAGE);
+            if ((isVoice || isImage) && !parentFrame.isFocused()) {
+                String msgType = isVoice ? "tin nhắn thoại" : "một hình ảnh";
+                JOptionPane.showMessageDialog(parentFrame, "Bạn có " + msgType + " mới từ " + senderName, "Tin nhắn mới", JOptionPane.INFORMATION_MESSAGE);
             }
         });
     }

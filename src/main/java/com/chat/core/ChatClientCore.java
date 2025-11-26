@@ -1,6 +1,6 @@
-package com.chat.core; // Đã đổi package
+package com.chat.core;
 
-import com.chat.model.Message; // Đã đổi import
+import com.chat.model.Message;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
@@ -9,7 +9,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ChatClientCore {
     private volatile boolean connected = false;
@@ -154,7 +153,7 @@ public class ChatClientCore {
     }
 
     /**
-     * NEW: Gửi tin nhắn GIF lên Server.
+     * Gửi tin nhắn GIF lên Server.
      */
     public void sendGif(String gifKeyword, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
@@ -167,12 +166,11 @@ public class ChatClientCore {
     }
 
     /**
-     * [MỚI] Gửi tin nhắn Voice (Base64 Audio) lên Server.
+     * Gửi tin nhắn Voice (Base64 Audio) lên Server.
      */
     public void sendVoice(String base64Data, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 
-        // Sử dụng Message.voice factory method mới (cần thêm vào Message.java)
         Message msgToSend = Message.voice(base64Data, recipient);
 
         String json = gson.toJson(msgToSend) + "\n";
@@ -180,7 +178,20 @@ public class ChatClientCore {
         out.flush();
     }
 
-    // Phương thức mới: Yêu cầu lịch sử DM
+    /**
+     * [MỚI] Gửi tin nhắn Ảnh (Base64 Image) lên Server.
+     */
+    public void sendImage(String base64Data, String recipient) throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
+
+        Message msgToSend = Message.image(base64Data, recipient);
+
+        String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    // Yêu cầu lịch sử DM
     public void requestDirectHistory(String targetName) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 

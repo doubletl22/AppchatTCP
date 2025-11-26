@@ -13,7 +13,7 @@ public class Message {
     public List<String> users; // Dành cho userlist
     public boolean isSelf = false; // Dành cho hiển thị cục bộ (Local Echo)
 
-    // [MỚI] Trường chứa dữ liệu âm thanh (Base64 string)
+    // [MỚI] Trường chứa dữ liệu âm thanh (Base64 string) hoặc hình ảnh
     public String data;
 
     public Message() {}
@@ -51,6 +51,16 @@ public class Message {
         m.targetName = "Public Chat".equals(recipient) ? null : recipient;
         m.data = base64Data;
         m.text = "[Tin nhắn thoại]"; // Nội dung hiển thị thay thế nếu client không hỗ trợ voice
+        return m;
+    }
+
+    // [MỚI] Image Message for sending (Thêm mới cho tính năng gửi ảnh)
+    public static Message image(String base64Data, String recipient) {
+        Message m = new Message();
+        m.type = "Public Chat".equals(recipient) ? "image" : "dm_image";
+        m.targetName = "Public Chat".equals(recipient) ? null : recipient;
+        m.data = base64Data;
+        m.text = "[Hình ảnh]"; // Nội dung hiển thị thay thế
         return m;
     }
 

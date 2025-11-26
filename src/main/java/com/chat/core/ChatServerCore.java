@@ -89,10 +89,15 @@ public class ChatServerCore extends Thread {
             logText = "[GIF] " + m.name + ": " + m.text;
 
         } else if ("voice".equals(m.type)) {
-            // [MỚI] Xử lý tin nhắn thoại công khai
-            // Lưu placeholder vào DB để không bị lỗi lịch sử, nhưng không lưu data quá lớn
+            // Xử lý tin nhắn thoại công khai
             dbManager.storeMessage(m.name, "[Tin nhắn thoại]");
             logText = "[VOICE] " + m.name + " sent a voice message.";
+
+        } else if ("image".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn ảnh công khai
+            // Lưu placeholder vào DB để tiết kiệm dung lượng, ảnh thật chỉ gửi qua mạng
+            dbManager.storeMessage(m.name, "[Hình ảnh]");
+            logText = "[IMAGE] " + m.name + " sent an image.";
 
         } else if ("system".equals(m.type)) {
             logText = m.text;
@@ -133,11 +138,16 @@ public class ChatServerCore extends Thread {
             msgTypeToTarget = "dm_gif";
             msgTypeToSender = "dm_gif";
         } else if ("dm_voice".equals(m.type)) {
-            // [MỚI] Xử lý tin nhắn thoại riêng tư
             storedMessage = "[Tin nhắn thoại]";
             logPrefix = "[DM VOICE] ";
             msgTypeToTarget = "dm_voice";
             msgTypeToSender = "dm_voice";
+        } else if ("dm_image".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn ảnh riêng tư
+            storedMessage = "[Hình ảnh]";
+            logPrefix = "[DM IMAGE] ";
+            msgTypeToTarget = "dm_image";
+            msgTypeToSender = "dm_image";
         }
 
         // Lưu vào DB
@@ -154,16 +164,15 @@ public class ChatServerCore extends Thread {
         msgToTarget.name = sender.name;
         msgToTarget.targetName = targetName;
         msgToTarget.text = m.text;
-        msgToTarget.data = m.data; // [QUAN TRỌNG] Chuyển tiếp dữ liệu âm thanh
+        msgToTarget.data = m.data; // [QUAN TRỌNG] Chuyển tiếp dữ liệu âm thanh/hình ảnh
 
         // 2. Gửi xác nhận cho người gửi (Sender)
-        // Lưu ý: Client hiện tại đã có Local Echo nên gói này chủ yếu để xác nhận server đã xử lý
         Message msgToSender = new Message();
         msgToSender.type = msgTypeToSender;
         msgToSender.name = "[TO " + targetName + "]";
         msgToSender.targetName = targetName;
         msgToSender.text = m.text;
-        // Không cần gửi lại data âm thanh cho người gửi để tiết kiệm băng thông
+        // Không cần gửi lại data cho người gửi để tiết kiệm băng thông
 
         sendToClient(target, msgToTarget);
         sendToClient(sender, msgToSender);
@@ -264,17 +273,17 @@ public class ChatServerCore extends Thread {
                     try {
                         Message m = gson.fromJson(l, Message.class);
                         if (m != null) {
-                            // 1. Xử lý Chat công khai (Text, GIF, Voice)
-                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type)) {
+                            // 1. Xử lý Chat công khai (Text, GIF, Voice, Image)
+                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type) || "image".equals(m.type)) {
                                 Message outMsg = new Message();
                                 outMsg.type = m.type;
                                 outMsg.name = name;
                                 outMsg.text = m.text;
-                                outMsg.data = m.data; // [QUAN TRỌNG] Copy dữ liệu voice
+                                outMsg.data = m.data; // [QUAN TRỌNG] Copy dữ liệu voice/image
                                 broadcast(outMsg);
 
-                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice)
-                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type))
+                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice, DM Image)
+                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type) || "dm_image".equals(m.type))
                                     && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);

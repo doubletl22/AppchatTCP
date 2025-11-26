@@ -9,9 +9,11 @@ import com.chat.util.UiUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
 import java.net.URL;
 
 public class ClientChatPanel extends JPanel {
@@ -82,8 +84,10 @@ public class ClientChatPanel extends JPanel {
             }
         });
 
+        // [CẬP NHẬT] Logic gửi ảnh
+        imageBtn.addActionListener(e -> chooseAndSendImage());
+
         gifBtn.addActionListener(e -> showGifPicker());
-        imageBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Tính năng gửi ảnh đang phát triển!"));
         stickerBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Tính năng Sticker đang phát triển!"));
 
         leftActions.add(micBtn);
@@ -144,6 +148,23 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
+    // [MỚI] Hàm chọn ảnh từ máy tính
+    private void chooseAndSendImage() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Chọn ảnh để gửi");
+        // Filter chỉ hiện file ảnh
+        FileNameExtensionFilter filter = new FileNameExtensionFilter("Hình ảnh (JPG, PNG, GIF)", "jpg", "jpeg", "png", "gif");
+        fileChooser.setFileFilter(filter);
+
+        int userSelection = fileChooser.showOpenDialog(this);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToUpload = fileChooser.getSelectedFile();
+            if (controller != null) {
+                controller.handleSendImage(fileToUpload);
+            }
+        }
+    }
+
     private void showGifPicker() {
         JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
         GifPickerDialog dialog = new GifPickerDialog(parentFrame, (selectedUrl) -> {
@@ -186,6 +207,9 @@ public class ClientChatPanel extends JPanel {
         boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
         boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
                 "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
+        // [CẬP NHẬT] Kiểm tra tin nhắn ảnh
+        boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
+
         boolean isSelf;
         if (m.name != null && m.name.startsWith("[TO ")) isSelf = true;
         else isSelf = m.name != null && m.name.equals(currentUserName);
@@ -199,6 +223,7 @@ public class ClientChatPanel extends JPanel {
                 JPanel messageBubble;
                 if (isVoice) messageBubble = createVoiceBubble(m.name, m.data, isSelf);
                 else if (isGif) messageBubble = createGifBubble(m.name, m.text, isSelf);
+                else if (isImage) messageBubble = createImageBubble(m.name, m.data, isSelf); // [MỚI]
                 else messageBubble = createChatBubble(m.name, m.text, isSelf);
 
                 JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 2));
@@ -217,6 +242,70 @@ public class ClientChatPanel extends JPanel {
                 vertical.setValue(vertical.getMaximum());
             }
         });
+    }
+
+    // [MỚI] Tạo bong bóng chat chứa Ảnh (Decode Base64)
+    private JPanel createImageBubble(String sender, String base64Data, boolean isSelf) {
+        JPanel bubblePanel = new JPanel();
+        bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
+        // Ảnh không có viền nền
+        bubblePanel.setBorder(null);
+        bubblePanel.setOpaque(false);
+
+        if (!isSelf && sender != null && !sender.equals("Public Chat")) {
+            JLabel senderLabel = new JLabel(sender);
+            senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
+            senderLabel.setForeground(new Color(180, 180, 180));
+            senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
+            bubblePanel.add(senderLabel);
+        }
+
+        JLabel imageLabel = new JLabel("Đang tải ảnh...", SwingConstants.CENTER);
+        imageLabel.setPreferredSize(new Dimension(200, 150));
+        imageLabel.setForeground(Color.LIGHT_GRAY);
+
+        // Chạy luồng giải mã ảnh riêng để không đơ UI
+        new Thread(() -> {
+            try {
+                // Sử dụng ImageUtils đã tạo
+                Image img = com.chat.util.ImageUtils.decodeBase64ToImage(base64Data);
+                if (img != null) {
+                    // Logic resize ảnh để vừa khung chat (Max 300x300)
+                    int w = img.getWidth(null);
+                    int h = img.getHeight(null);
+                    int maxDim = 300;
+
+                    if (w > maxDim || h > maxDim) {
+                        float ratio = (float) w / h;
+                        if (ratio > 1) { // Rộng hơn cao
+                            w = maxDim;
+                            h = (int) (maxDim / ratio);
+                        } else { // Cao hơn rộng
+                            h = maxDim;
+                            w = (int) (maxDim * ratio);
+                        }
+                        img = img.getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                    }
+
+                    ImageIcon icon = new ImageIcon(img);
+                    SwingUtilities.invokeLater(() -> {
+                        imageLabel.setText("");
+                        imageLabel.setIcon(icon);
+                        imageLabel.setPreferredSize(null); // Reset để tự co giãn theo ảnh
+                        bubblePanel.revalidate();
+                        bubblePanel.repaint();
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> imageLabel.setText("❌ Lỗi ảnh"));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> imageLabel.setText("❌ Lỗi tải"));
+            }
+        }).start();
+
+        bubblePanel.add(imageLabel);
+        return bubblePanel;
     }
 
     private JPanel createVoiceBubble(String sender, String base64Audio, boolean isSelf) {
@@ -242,30 +331,17 @@ public class ClientChatPanel extends JPanel {
         return bubblePanel;
     }
 
-    // [Bubble] GIF - ĐÃ SỬA ĐỂ LOẠI BỎ VIỀN BO TRÒN MÀU XANH/XÁM
+    // [Bubble] GIF
     private JPanel createGifBubble(String sender, String gifUrl, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-
-        // --- CÁC THAY ĐỔI ĐỂ BỎ VIỀN ---
-        // 1. Bỏ property bo góc (FlatPanel.arc) vì không còn nền để bo.
-        // bubblePanel.putClientProperty("FlatPanel.arc", 18); // Đã comment lại
-
-        // 2. Đặt border là null để không có khoảng đệm, ảnh tràn ra mép.
         bubblePanel.setBorder(null);
-
-        // 3. Đặt panel thành trong suốt (opaque = false).
         bubblePanel.setOpaque(false);
-
-        // 4. Bỏ việc set màu nền (setBackground).
-        // bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65)); // Đã comment lại
-        // -------------------------------
 
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
             senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
             senderLabel.setForeground(new Color(180, 180, 180));
-            // Thêm chút padding nhẹ cho tên người gửi nếu cần
             senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
             bubblePanel.add(senderLabel);
         }
