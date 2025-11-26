@@ -63,7 +63,7 @@ public class ClientChatPanel extends JPanel {
 
         // Nút GIF
         styleIconButton(gifBtn, 12f);
-        gifBtn.setFont(new Font("Segoe UI", Font.BOLD, 12)); // Dùng font thường cho chữ GIF
+        gifBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         gifBtn.setText("GIF");
         gifBtn.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
 
@@ -107,13 +107,10 @@ public class ClientChatPanel extends JPanel {
         emojiBtn.addActionListener(e -> showEmojiPopup(emojiBtn));
         inputField.putClientProperty("JTextField.trailingComponent", emojiBtn);
 
-        // -- Nút Gửi (SỬA LỖI Ở ĐÂY) --
+        // -- Nút Gửi --
         sendBtn.setAction(sendAction);
-        // Thay ký tự "➤" bị lỗi bằng ký tự "▶" (Play/Triangle) an toàn hơn
         sendBtn.setText("▶");
-
         styleIconButton(sendBtn, 20f);
-        // Ghi đè font cho nút Gửi về font hệ thống để đảm bảo hiện được ký tự mũi tên
         sendBtn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
         sendBtn.setForeground(MSG_BLUE);
 
@@ -132,12 +129,9 @@ public class ClientChatPanel extends JPanel {
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setForeground(MSG_BLUE);
-        // Ưu tiên Segoe UI Emoji cho các icon mặt cười, mic...
         btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, (int)size));
         btn.setMargin(new Insets(2, 6, 2, 6));
     }
-
-    // ... (Giữ nguyên các hàm Setter, Getter, Logic xử lý bên dưới)
 
     public void setController(ClientController controller) { this.controller = controller; }
     public String getInputText() { return inputField.getText(); }
@@ -248,18 +242,31 @@ public class ClientChatPanel extends JPanel {
         return bubblePanel;
     }
 
+    // [Bubble] GIF - ĐÃ SỬA ĐỂ LOẠI BỎ VIỀN BO TRÒN MÀU XANH/XÁM
     private JPanel createGifBubble(String sender, String gifUrl, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-        bubblePanel.putClientProperty("FlatPanel.arc", 18);
-        bubblePanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        bubblePanel.setOpaque(true);
-        bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65));
+
+        // --- CÁC THAY ĐỔI ĐỂ BỎ VIỀN ---
+        // 1. Bỏ property bo góc (FlatPanel.arc) vì không còn nền để bo.
+        // bubblePanel.putClientProperty("FlatPanel.arc", 18); // Đã comment lại
+
+        // 2. Đặt border là null để không có khoảng đệm, ảnh tràn ra mép.
+        bubblePanel.setBorder(null);
+
+        // 3. Đặt panel thành trong suốt (opaque = false).
+        bubblePanel.setOpaque(false);
+
+        // 4. Bỏ việc set màu nền (setBackground).
+        // bubblePanel.setBackground(isSelf ? UIManager.getColor("Component.accentColor") : new Color(60, 63, 65)); // Đã comment lại
+        // -------------------------------
+
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
             senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
             senderLabel.setForeground(new Color(180, 180, 180));
-            senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 2, 0));
+            // Thêm chút padding nhẹ cho tên người gửi nếu cần
+            senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
             bubblePanel.add(senderLabel);
         }
         JLabel loadingLabel = new JLabel("Loading...", SwingConstants.CENTER);
