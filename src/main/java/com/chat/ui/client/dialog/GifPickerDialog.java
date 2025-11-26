@@ -45,8 +45,8 @@ public class GifPickerDialog extends JDialog {
         add(searchPanel, BorderLayout.NORTH);
 
         // --- 2. GRID HIỂN THỊ ẢNH ---
-        // Grid 3 cột, khoảng cách 10px
-        gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        // Giữ nguyên khoảng cách hẹp (3px) để đẹp như thiết kế mới
+        gridPanel = new JPanel(new GridLayout(0, 3, 3, 3));
         gridPanel.setBackground(Color.WHITE);
 
         scrollPane = new JScrollPane(gridPanel);
@@ -96,8 +96,11 @@ public class GifPickerDialog extends JDialog {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.LIGHT_GRAY);
         panel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        // Kích thước cố định cho mỗi ô ảnh
-        panel.setPreferredSize(new Dimension(180, 120));
+
+        // Kích thước ô ảnh (đã căn chỉnh cho khít)
+        int itemWidth = 190;
+        int itemHeight = 130;
+        panel.setPreferredSize(new Dimension(itemWidth, itemHeight));
 
         JLabel imageLabel = new JLabel("Loading...", SwingConstants.CENTER);
         panel.add(imageLabel, BorderLayout.CENTER);
@@ -107,8 +110,10 @@ public class GifPickerDialog extends JDialog {
             try {
                 URL url = new URL(urlStr);
                 ImageIcon icon = new ImageIcon(url);
-                // Resize ảnh cho vừa khung grid (180x120)
-                Image img = icon.getImage().getScaledInstance(180, 120, Image.SCALE_DEFAULT);
+
+                // [QUAN TRỌNG] Đổi lại thành SCALE_DEFAULT hoặc SCALE_FAST để load nhanh như cũ
+                // SCALE_SMOOTH rất nặng, gây lag khi load nhiều ảnh
+                Image img = icon.getImage().getScaledInstance(itemWidth, itemHeight, Image.SCALE_DEFAULT);
                 ImageIcon scaledIcon = new ImageIcon(img);
 
                 SwingUtilities.invokeLater(() -> {
