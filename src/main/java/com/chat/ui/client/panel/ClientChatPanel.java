@@ -14,7 +14,6 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.net.URL;
 
 public class ClientChatPanel extends JPanel {
 
@@ -33,28 +32,26 @@ public class ClientChatPanel extends JPanel {
     private final ClientViewModel viewModel;
     private ClientController controller;
 
-    // --- MÀU SẮC MỚI ---
-    private static final Color MY_MSG_BG = new Color(0, 150, 136); // Xanh Ngọc (Tin mình gửi)
-    private static final Color OTHER_MSG_BG = new Color(230, 230, 230); // Xám nhạt (Tin người khác)
-    private static final Color INPUT_BG = new Color(240, 242, 245); // Nền ô nhập liệu sáng
-
     public ClientChatPanel(ClientViewModel viewModel, Action sendAction) {
         this.viewModel = viewModel;
         setLayout(new BorderLayout(0, 0));
-        setBackground(Color.WHITE); // Nền chính màu trắng
+        // Không setBackground cứng, để tự theo theme
 
         // --- 1. KHU VỰC HIỂN THỊ CHAT ---
-        chatDisplayPanel.setBackground(Color.WHITE); // Nền chat màu trắng
+        chatDisplayPanel.setOpaque(false); // Trong suốt để ăn theo màu nền chính
+
         JScrollPane chatScroll = new JScrollPane(chatDisplayPanel);
         chatScroll.getVerticalScrollBar().setUnitIncrement(16);
         chatScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         chatScroll.setBorder(BorderFactory.createEmptyBorder());
+        chatScroll.getViewport().setOpaque(false); // Quan trọng để nền mượt
+        chatScroll.setOpaque(false);
         add(chatScroll, BorderLayout.CENTER);
 
         // --- 2. THANH NHẬP LIỆU ---
         JPanel bottomInput = new JPanel(new BorderLayout(10, 0));
         bottomInput.setBorder(new EmptyBorder(15, 15, 15, 15));
-        bottomInput.setBackground(Color.WHITE); // Nền thanh nhập liệu trắng
+        // bottomInput.setOpaque(false); // Hoặc để mặc định theo theme Panel
 
         // -- Nhóm Icon bên trái --
         JPanel leftActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -69,7 +66,7 @@ public class ClientChatPanel extends JPanel {
         gifBtn.setText("GIF");
         gifBtn.setBorder(BorderFactory.createLineBorder(UiUtils.TEAL_COLOR, 1, true));
 
-        // Logic Mic (Giữ nguyên)
+        // Logic Mic
         micBtn.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -96,12 +93,12 @@ public class ClientChatPanel extends JPanel {
         // -- Ô NHẬP LIỆU --
         inputField.setAction(sendAction);
         inputField.putClientProperty("JTextField.placeholderText", "Nhập tin nhắn...");
-        inputField.putClientProperty("Component.arc", 999); // Bo tròn hoàn toàn
+        inputField.putClientProperty("Component.arc", 999);
         inputField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        inputField.setForeground(Color.BLACK); // Chữ màu đen
-        inputField.setCaretColor(Color.BLACK);
-        inputField.setBackground(INPUT_BG); // Nền xám nhạt
         inputField.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 40));
+
+        // Cài đặt màu ban đầu
+        updateInputStyle();
 
         // -- Nút Emoji --
         styleIconButton(emojiBtn, 20f);
@@ -123,17 +120,31 @@ public class ClientChatPanel extends JPanel {
         add(bottomInput, BorderLayout.SOUTH);
     }
 
+    // [QUAN TRỌNG] Cập nhật lại màu sắc khi Theme thay đổi
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        if (inputField != null) {
+            updateInputStyle();
+        }
+    }
+
+    private void updateInputStyle() {
+        inputField.setBackground(UIManager.getColor("App.inputBackground"));
+        inputField.setForeground(UIManager.getColor("TextField.foreground"));
+        inputField.setCaretColor(UIManager.getColor("TextField.caretForeground"));
+    }
+
     private void styleIconButton(JButton btn, float size) {
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setForeground(UiUtils.TEAL_COLOR); // Icon màu Teal
+        btn.setForeground(UiUtils.TEAL_COLOR);
         btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, (int)size));
         btn.setMargin(new Insets(2, 6, 2, 6));
     }
 
-    // ... (Giữ nguyên các hàm setController, chooseAndSendImage, showGifPicker, showEmojiPopup) ...
     public void setController(ClientController controller) { this.controller = controller; }
     public String getInputText() { return inputField.getText(); }
     public void clearInputField() { inputField.setText(""); }
@@ -167,7 +178,7 @@ public class ClientChatPanel extends JPanel {
 
     private void showEmojiPopup(Component invoker) {
         JPopupMenu popup = new JPopupMenu();
-        popup.setBackground(Color.WHITE);
+        popup.setBackground(UIManager.getColor("Panel.background")); // Màu theo theme
         popup.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         String[] emojis = {"😀", "😂", "🥰", "😎", "😭", "👍", "👎", "❤️", "🔥", "🎉"};
         JPanel panel = new JPanel(new GridLayout(2, 5, 5, 5));
@@ -186,8 +197,6 @@ public class ClientChatPanel extends JPanel {
         popup.add(panel);
         popup.show(invoker, 0, -80);
     }
-
-    // ... (Tiếp tục với phần hiển thị tin nhắn - CẦN SỬA createChatBubble) ...
 
     public void appendMessage(Message m, String currentUserName) {
         boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
@@ -228,22 +237,23 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // --- CÁC HÀM TẠO BONG BÓNG CHAT (ĐÃ SỬA MÀU) ---
+    // --- CÁC HÀM TẠO BONG BÓNG CHAT ---
 
     private JPanel createChatBubble(String sender, String text, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
-        bubblePanel.putClientProperty("FlatPanel.arc", 20); // Bo tròn đẹp hơn
+        bubblePanel.putClientProperty("FlatPanel.arc", 20);
         bubblePanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         bubblePanel.setOpaque(true);
 
-        // MÀU NỀN BONG BÓNG
-        bubblePanel.setBackground(isSelf ? MY_MSG_BG : OTHER_MSG_BG);
+        // MÀU ĐỘNG
+        bubblePanel.setBackground(isSelf ? UIManager.getColor("App.selfMessageBackground")
+                : UIManager.getColor("App.otherMessageBackground"));
 
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
             senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
-            senderLabel.setForeground(Color.DARK_GRAY); // Tên người gửi màu tối
+            senderLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
             senderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
             bubblePanel.add(senderLabel);
         }
@@ -253,11 +263,13 @@ public class ClientChatPanel extends JPanel {
         textPane.setEditable(false);
         textPane.setOpaque(false);
         textPane.setBorder(null);
-        // MÀU CHỮ: Trắng nếu là mình, Đen nếu là người khác
-        textPane.setForeground(isSelf ? Color.WHITE : Color.BLACK);
-        textPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
-        // Logic chỉnh size text (Giữ nguyên)
+        // MÀU CHỮ ĐỘNG
+        Color fgColor = isSelf ? UIManager.getColor("App.selfMessageForeground")
+                : UIManager.getColor("App.otherMessageForeground");
+        textPane.setForeground(fgColor);
+
+        textPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         textPane.setPreferredSize(new Dimension(Math.min(350, getFontMetrics(textPane.getFont()).stringWidth(text) + 20), textPane.getPreferredSize().height));
         textPane.setSize(new Dimension(350, Short.MAX_VALUE));
 
@@ -271,12 +283,14 @@ public class ClientChatPanel extends JPanel {
         bubblePanel.putClientProperty("FlatPanel.arc", 20);
         bubblePanel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         bubblePanel.setOpaque(true);
-        bubblePanel.setBackground(isSelf ? MY_MSG_BG : OTHER_MSG_BG);
+
+        bubblePanel.setBackground(isSelf ? UIManager.getColor("App.selfMessageBackground")
+                : UIManager.getColor("App.otherMessageBackground"));
 
         if (!isSelf && sender != null && !sender.equals("Public Chat")) {
             JLabel senderLabel = new JLabel(sender);
             senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
-            senderLabel.setForeground(Color.DARK_GRAY);
+            senderLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
             bubblePanel.add(senderLabel);
         }
         String sizeText = "Voice Message";
@@ -285,7 +299,8 @@ public class ClientChatPanel extends JPanel {
         JButton playBtn = new JButton("▶ " + sizeText);
         playBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         playBtn.putClientProperty("JButton.buttonType", "roundRect");
-        playBtn.setBackground(isSelf ? new Color(0, 121, 107) : Color.WHITE); // Màu nút play
+        // Đảo màu nút Play để nổi bật trên nền bong bóng
+        playBtn.setBackground(isSelf ? new Color(0,0,0,50) : Color.WHITE);
         playBtn.setForeground(isSelf ? Color.WHITE : Color.BLACK);
 
         playBtn.addActionListener(e -> { if (base64Audio != null) AudioUtils.playBase64Audio(base64Audio); });
@@ -293,18 +308,14 @@ public class ClientChatPanel extends JPanel {
         return bubblePanel;
     }
 
-    // Giữ nguyên createGifBubble và createImageBubble (chỉ lưu ý không đổi logic)
-    // Tôi rút gọn code phần này để tránh quá dài, bạn giữ nguyên logic ảnh/gif cũ,
-    // chỉ cần thay bubblePanel.setBackground(Color.WHITE) cho các ảnh để nền sạch sẽ.
-    private JPanel createImageBubble(String sender, String base64Data, boolean isSelf) {
-        // Copy logic cũ của bạn, nhưng bỏ border nền đi cho đẹp
-        // bubblePanel.setBorder(null);
-        // bubblePanel.setOpaque(false);
-        // ...
-        return createChatBubble(sender, "[Ảnh]", isSelf); // Placeholder nếu chưa copy logic full
-    }
+    // Tận dụng lại createChatBubble cho ảnh/gif để đơn giản hóa, chỉ thay nội dung hiển thị
+    // Bạn có thể thêm logic hiển thị ảnh ở đây nếu muốn giữ code cũ
     private JPanel createGifBubble(String sender, String gifUrl, boolean isSelf) {
-        return createChatBubble(sender, "[GIF]", isSelf); // Placeholder
+        return createChatBubble(sender, "[GIF]: " + gifUrl, isSelf);
+    }
+
+    private JPanel createImageBubble(String sender, String base64Data, boolean isSelf) {
+        return createChatBubble(sender, "[Ảnh]", isSelf);
     }
 
     private GridBagConstraints createGBC(int anchor) {

@@ -17,8 +17,8 @@ public class ClientConversationListPanel extends JPanel {
     public ClientConversationListPanel(ClientViewModel viewModel) {
         this.viewModel = viewModel;
         setLayout(new BorderLayout());
-        setBackground(Color.WHITE); // Nền trắng
-        setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(230, 230, 230))); // Viền phải nhẹ
+        // Không setBackground cứng
+        setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(200, 200, 200)));
 
         // Header "Đoạn chat"
         JLabel title = new JLabel("Đoạn chat");
@@ -28,15 +28,14 @@ public class ClientConversationListPanel extends JPanel {
 
         conversationList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         conversationList.setModel(viewModel.getConversationListModel());
-        conversationList.setFixedCellHeight(70); // Cao hơn chút cho thoáng
-        conversationList.setBackground(Color.WHITE);
+        conversationList.setFixedCellHeight(70);
         conversationList.setBorder(new EmptyBorder(5, 5, 5, 5));
 
         JScrollPane listScroll = new JScrollPane(conversationList);
         listScroll.setBorder(BorderFactory.createEmptyBorder());
         listScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-        // --- RENDERER CHO GIAO DIỆN SÁNG ---
+        // --- RENDERER ĐỘNG (Dùng UIManager) ---
         conversationList.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -47,8 +46,10 @@ public class ClientConversationListPanel extends JPanel {
                         if (isSelected) {
                             Graphics2D g2 = (Graphics2D) g.create();
                             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                            // Nền khi chọn: Màu Xanh Ngọc nhưng rất nhạt (Transparency)
-                            g2.setColor(new Color(0, 150, 136, 30));
+
+                            // Màu nền khi chọn: Lấy từ Theme (thường là xanh dương nhạt hoặc xám đậm)
+                            g2.setColor(UIManager.getColor("List.selectionBackground"));
+                            // Vẽ bo tròn
                             g2.fill(new RoundRectangle2D.Double(5, 5, getWidth()-10, getHeight()-10, 15, 15));
                             g2.dispose();
                         }
@@ -67,12 +68,12 @@ public class ClientConversationListPanel extends JPanel {
                         Graphics2D g2 = (Graphics2D) g.create();
                         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                        // Vòng tròn avatar
-                        g2.setColor(new Color(230, 230, 230));
+                        // Vòng tròn avatar (Màu nền avatar trung tính)
+                        g2.setColor(new Color(150, 150, 150));
                         g2.fill(new Ellipse2D.Double(0, 0, 45, 45));
 
                         // Chữ cái đầu
-                        g2.setColor(UiUtils.TEAL_COLOR);
+                        g2.setColor(Color.WHITE);
                         g2.setFont(new Font("Segoe UI", Font.BOLD, 20));
                         String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase();
                         FontMetrics fm = g2.getFontMetrics();
@@ -86,13 +87,20 @@ public class ClientConversationListPanel extends JPanel {
                 // Tên User
                 JPanel textPanel = new JPanel(new GridLayout(2, 1));
                 textPanel.setOpaque(false);
+
                 JLabel nameLabel = new JLabel(name);
                 nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
-                nameLabel.setForeground(Color.BLACK); // Màu chữ đen
+
+                // Màu chữ tên: Trắng nếu đang chọn, ngược lại theo theme (Đen/Trắng)
+                if (isSelected) {
+                    nameLabel.setForeground(UIManager.getColor("List.selectionForeground"));
+                } else {
+                    nameLabel.setForeground(UIManager.getColor("List.foreground"));
+                }
 
                 JLabel subLabel = new JLabel(isSelected ? "Đang chat..." : "Click để xem");
                 subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-                subLabel.setForeground(Color.GRAY);
+                subLabel.setForeground(isSelected ? UIManager.getColor("List.selectionForeground") : Color.GRAY);
 
                 textPanel.add(nameLabel);
                 textPanel.add(subLabel);

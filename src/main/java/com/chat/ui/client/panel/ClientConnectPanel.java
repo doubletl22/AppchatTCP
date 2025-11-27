@@ -1,25 +1,25 @@
 package com.chat.ui.client.panel;
 
 import com.chat.model.ClientViewModel;
+import com.chat.util.UiUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionListener;
+// Đã xóa dòng import sai: java.awt.event.Action
 
 public class ClientConnectPanel extends JPanel {
-    // Các thành phần nhập liệu
     private final JTextField hostField = new JTextField("127.0.0.1");
     private final JTextField portField = new JTextField("5555");
     private final JLabel statusLabel = new JLabel("Trạng thái: Chưa kết nối");
     private final JButton connectBtn = new JButton("Kết nối");
 
-    // Thành phần điều khiển hiển thị
     private final JButton toggleButton;
-    private final JPanel containerPanel; // Panel chứa form nhập liệu (để ẩn/hiện)
+    private final JButton themeBtn; // Nút theme mới
+    private final JPanel containerPanel;
 
     private final ClientViewModel viewModel;
-    private final Action connectAction;
+    private final Action connectAction; // javax.swing.Action
     private final Action disconnectAction;
 
     public ClientConnectPanel(ClientViewModel viewModel, Action connectAction, Action disconnectAction) {
@@ -27,52 +27,54 @@ public class ClientConnectPanel extends JPanel {
         this.connectAction = connectAction;
         this.disconnectAction = disconnectAction;
 
-        // Thiết lập layout chính
         setLayout(new BorderLayout());
-        setBackground(UIManager.getColor("Panel.background"));
+        // Để màu nền tự động theo theme
+        // setBackground(UIManager.getColor("Panel.background"));
         setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(200, 200, 200)));
 
-        // --- PHẦN 1: HEADER (Luôn hiển thị) ---
+        // --- HEADER ---
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBorder(new EmptyBorder(8, 15, 8, 15));
-        headerPanel.setBackground(UIManager.getColor("Panel.background"));
+        headerPanel.setOpaque(false);
 
-        // 1a. Trạng thái (Bên trái)
         statusLabel.setFont(statusLabel.getFont().deriveFont(Font.BOLD, 13f));
-        statusLabel.setForeground(UIManager.getColor("Component.accentColor"));
+        statusLabel.setForeground(UiUtils.TEAL_COLOR);
 
-        // 1b. Nút Toggle (Bên phải)
-        toggleButton = new JButton("⚙ Cấu hình kết nối");
-        toggleButton.setFont(toggleButton.getFont().deriveFont(12f));
-        toggleButton.setBorderPainted(false);
-        toggleButton.setContentAreaFilled(false);
-        toggleButton.setFocusPainted(false);
-        toggleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        toggleButton.setForeground(Color.GRAY);
+        // Panel chứa các nút bên phải
+        JPanel rightHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightHeader.setOpaque(false);
+
+        // 1. Nút Đổi Theme
+        themeBtn = new JButton("🌗");
+        styleHeaderButton(themeBtn);
+        themeBtn.setToolTipText("Chuyển chế độ Sáng/Tối");
+        themeBtn.addActionListener(e -> UiUtils.toggleTheme());
+
+        // 2. Nút Cấu hình
+        toggleButton = new JButton("⚙ Cấu hình");
+        styleHeaderButton(toggleButton);
         toggleButton.addActionListener(e -> toggleContainerPanel());
 
+        rightHeader.add(themeBtn);
+        rightHeader.add(toggleButton);
+
         headerPanel.add(statusLabel, BorderLayout.WEST);
-        headerPanel.add(toggleButton, BorderLayout.EAST);
+        headerPanel.add(rightHeader, BorderLayout.EAST);
         add(headerPanel, BorderLayout.NORTH);
 
-        // --- PHẦN 2: CONTAINER PANEL (Form nhập liệu) ---
+        // --- FORM NHẬP LIỆU ---
         containerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        containerPanel.setBackground(UIManager.getColor("Panel.background"));
+        containerPanel.setOpaque(false);
         containerPanel.setBorder(new EmptyBorder(0, 15, 10, 15));
 
-        // Label và Input Host
         containerPanel.add(new JLabel("Host:"));
         hostField.setColumns(12);
-        hostField.putClientProperty("Component.arc", 10);
         containerPanel.add(hostField);
 
-        // Label và Input Port
         containerPanel.add(new JLabel("Port:"));
         portField.setColumns(6);
-        portField.putClientProperty("Component.arc", 10);
         containerPanel.add(portField);
 
-        // Nút Kết nối
         connectBtn.setAction(connectAction);
         connectBtn.setText("Kết nối");
         connectBtn.putClientProperty("JButton.buttonType", "roundRect");
@@ -82,26 +84,25 @@ public class ClientConnectPanel extends JPanel {
         add(containerPanel, BorderLayout.CENTER);
         containerPanel.setVisible(false);
 
-        // --- [QUAN TRỌNG] LIÊN KẾT MODEL ĐÃ SỬA LỖI ---
-        // Gộp chung vào 1 listener để đảm bảo cả 2 hàm đều được gọi
         viewModel.onStatusUpdate(status -> {
             setStatusLabel(status);
             updateButtonStates(status);
         });
     }
 
+    private void styleHeaderButton(JButton btn) {
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setForeground(Color.GRAY);
+        btn.setFont(btn.getFont().deriveFont(14f));
+    }
+
     private void toggleContainerPanel() {
         boolean isVisible = containerPanel.isVisible();
         containerPanel.setVisible(!isVisible);
-        if (!isVisible) {
-            toggleButton.setText("▲ Ẩn cấu hình");
-            toggleButton.setForeground(UIManager.getColor("Component.accentColor"));
-        } else {
-            toggleButton.setText("⚙ Cấu hình kết nối");
-            toggleButton.setForeground(Color.GRAY);
-        }
-        revalidate();
-        repaint();
+        toggleButton.setForeground(isVisible ? Color.GRAY : UiUtils.TEAL_COLOR);
     }
 
     public void setStatusLabel(String status) {
@@ -123,14 +124,11 @@ public class ClientConnectPanel extends JPanel {
             connectBtn.setForeground(Color.WHITE);
             hostField.setEnabled(false);
             portField.setEnabled(false);
-
-            if (containerPanel.isVisible()) {
-                toggleContainerPanel();
-            }
+            if (containerPanel.isVisible()) toggleContainerPanel();
         } else {
             connectBtn.setAction(connectAction);
             connectBtn.setText("Kết nối");
-            connectBtn.setBackground(UIManager.getColor("Component.accentColor"));
+            connectBtn.setBackground(UiUtils.TEAL_COLOR);
             connectBtn.setForeground(Color.WHITE);
             hostField.setEnabled(true);
             portField.setEnabled(true);
