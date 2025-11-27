@@ -85,19 +85,21 @@ public class ChatServerCore extends Thread {
             logText = "[CHAT] " + m.name + ": " + m.text;
 
         } else if ("gif".equals(m.type)) {
+            // Lưu cả link GIF vào DB
             dbManager.storeMessage(m.name, "[GIF]: " + m.text);
             logText = "[GIF] " + m.name + ": " + m.text;
 
         } else if ("voice".equals(m.type)) {
-            // Xử lý tin nhắn thoại công khai
+            // [QUAN TRỌNG] Lưu Base64 vào DB (hoặc lưu text đại diện nhưng gửi đi phải có data)
+            // Ở đây ta lưu nội dung đại diện, nhưng khi broadcast M.DATA vẫn phải có
             dbManager.storeMessage(m.name, "[Tin nhắn thoại]");
-            logText = "[VOICE] " + m.name + " sent a voice message.";
+            logText = "[VOICE] " + m.name + " sent voice.";
 
         } else if ("image".equals(m.type)) {
-            // [MỚI] Xử lý tin nhắn ảnh công khai
-            // Lưu placeholder vào DB để tiết kiệm dung lượng, ảnh thật chỉ gửi qua mạng
+            // [QUAN TRỌNG] Tương tự voice
             dbManager.storeMessage(m.name, "[Hình ảnh]");
-            logText = "[IMAGE] " + m.name + " sent an image.";
+            logText = "[IMAGE] " + m.name + " sent image.";
+
 
         } else if ("system".equals(m.type)) {
             logText = m.text;

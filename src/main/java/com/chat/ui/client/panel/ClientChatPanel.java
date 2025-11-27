@@ -17,7 +17,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.io.File;
 import java.net.URL;
 import java.util.Base64;
 import java.util.Random;
@@ -28,6 +28,7 @@ public class ClientChatPanel extends JPanel {
     private final RoundedTextField inputField = new RoundedTextField(20);
     private final JButton sendBtn = new JButton();
 
+    // Các nút chức năng
     private final JButton micBtn = new JButton();
     private final JButton imageBtn = new JButton();
     private final JButton stickerBtn = new JButton();
@@ -42,17 +43,18 @@ public class ClientChatPanel extends JPanel {
         this.viewModel = viewModel;
         setLayout(new BorderLayout(0, 0));
 
-        // 1. KHUNG CHAT
+        // --- 1. KHU VỰC HIỂN THỊ CHAT ---
         chatDisplayPanel.setOpaque(false);
         JScrollPane chatScroll = new JScrollPane(chatDisplayPanel);
         chatScroll.getVerticalScrollBar().setUnitIncrement(16);
         chatScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        // Padding trên dưới cho vùng chat thoáng hơn
         chatScroll.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         chatScroll.getViewport().setOpaque(false);
         chatScroll.setOpaque(false);
         add(chatScroll, BorderLayout.CENTER);
 
-        // 2. THANH NHẬP LIỆU
+        // --- 2. THANH NHẬP LIỆU ---
         JPanel bottomInput = new JPanel(new GridBagLayout());
         bottomInput.setBorder(new EmptyBorder(10, 10, 10, 10));
         bottomInput.setOpaque(true);
@@ -63,23 +65,23 @@ public class ClientChatPanel extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER;
         gbc.insets = new Insets(0, 4, 0, 4);
 
-        // --- ICONS ---
+        // --- A. CÁC NÚT ICON BÊN TRÁI ---
         setupIconButton(micBtn, new MicIcon(22, UiUtils.TEAL_COLOR));
         setupIconButton(imageBtn, new ImageIconShape(22, UiUtils.TEAL_COLOR));
         setupIconButton(stickerBtn, new StickerIcon(22, UiUtils.TEAL_COLOR));
         setupIconButton(gifBtn, new GifIcon(28, 18, UiUtils.TEAL_COLOR));
 
-        // Logic Mic: Nhấn giữ để nói, thả ra để gửi
+        // Logic Mic: Nhấn giữ để thu âm, thả ra để gửi
         micBtn.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                micBtn.setIcon(new MicIcon(22, Color.RED)); // Đổi màu đỏ khi đang thu
+                micBtn.setIcon(new MicIcon(22, Color.RED)); // Đổi màu đỏ báo hiệu đang thu
                 try { audioRecorder.startRecording(); } catch (Exception ex) { ex.printStackTrace(); }
             }
             @Override
             public void mouseReleased(MouseEvent e) {
                 micBtn.setIcon(new MicIcon(22, UiUtils.TEAL_COLOR));
-                // Chạy luồng riêng để xử lý file âm thanh
+                // Chạy luồng riêng để xử lý và gửi file âm thanh
                 new Thread(() -> {
                     String base64 = audioRecorder.stopRecording();
                     if (base64 != null && controller != null) {
@@ -88,6 +90,8 @@ public class ClientChatPanel extends JPanel {
                 }).start();
             }
         });
+        // Ngăn chặn sự kiện click mặc định làm hỏng logic nhấn giữ
+        micBtn.addActionListener(e -> {});
 
         imageBtn.addActionListener(e -> chooseAndSendImage());
         gifBtn.addActionListener(e -> showGifPicker());
@@ -98,10 +102,10 @@ public class ClientChatPanel extends JPanel {
         gbc.gridx = 2; bottomInput.add(stickerBtn, gbc);
         gbc.gridx = 3; bottomInput.add(gifBtn, gbc);
 
-        // --- INPUT FIELD ---
+        // --- B. Ô NHẬP LIỆU (VIÊN THUỐC) ---
         inputField.setAction(sendAction);
         inputField.putClientProperty("JTextField.placeholderText", "Nhập tin nhắn...");
-        // [QUAN TRỌNG] Font Segoe UI Emoji để hiện mặt cười có màu
+        // [QUAN TRỌNG] Font Segoe UI Emoji để hiện mặt cười có màu trên Windows
         inputField.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         inputField.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 10));
 
@@ -112,28 +116,54 @@ public class ClientChatPanel extends JPanel {
         gbc.gridx = 4; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.BOTH;
         bottomInput.add(inputField, gbc);
 
-        // --- SEND BUTTON ---
+        // --- C. NÚT GỬI ---
         sendBtn.setAction(sendAction);
         setupIconButton(sendBtn, new SendIcon(24, UiUtils.TEAL_COLOR));
+
         gbc.gridx = 5; gbc.weightx = 0; gbc.fill = GridBagConstraints.VERTICAL;
         bottomInput.add(sendBtn, gbc);
 
         add(bottomInput, BorderLayout.SOUTH);
+
+        updateInputStyle();
     }
 
     @Override
     public void updateUI() {
         super.updateUI();
-        if (inputField != null) inputField.repaint();
+        if (inputField != null) {
+            updateInputStyle();
+            inputField.repaint();
+        }
+    }
+
+    private void updateInputStyle() {
+        inputField.setForeground(UIManager.getColor("TextField.foreground"));
+        inputField.setCaretColor(UIManager.getColor("TextField.caretForeground"));
+        // Màu nền được xử lý tự động trong class RoundedTextField
+    }
+
+    private void setupIconButton(JButton btn, Icon icon) {
+        btn.setIcon(icon);
+        btn.setText("");
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setMargin(new Insets(0,0,0,0));
     }
 
     // --- LOGIC HIỂN THỊ TIN NHẮN (ĐÃ NÂNG CẤP) ---
-    public void appendMessage(Message m, String currentUserName) {
-        boolean isSelf = (m.name != null && m.name.startsWith("[TO ")) || (m.name != null && m.name.equals(currentUserName));
 
-        // Phân loại tin nhắn để hiển thị đúng
+    public void appendMessage(Message m, String currentUserName) {
+        // Xác định tin nhắn của ai
+        boolean isSelf = (m.name != null && m.name.startsWith("[TO ")) ||
+                (m.name != null && m.name.equals(currentUserName));
+
+        // Phân loại tin nhắn
         boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
-        boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) || "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
+        boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
+                "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
         boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
 
         UiUtils.invokeLater(() -> {
@@ -150,11 +180,11 @@ public class ClientChatPanel extends JPanel {
                 else if (isImage) messageBubble = createImageBubble(m.data, isSelf);
                 else messageBubble = createChatBubble(m.text, isSelf);
 
-                // Container bao ngoài để căn lề
+                // Container bao ngoài để hiển thị tên người gửi (nếu cần)
                 JPanel wrapper = new JPanel(new BorderLayout());
                 wrapper.setOpaque(false);
 
-                // Hiển thị tên người gửi (nếu là nhóm chat và không phải mình)
+                // Chỉ hiện tên nếu không phải là tin nhắn của mình và không phải chat riêng (DM)
                 if (!isSelf && m.name != null && !m.name.equals("Public Chat") && !m.name.startsWith("[TO ")) {
                     JLabel nameLabel = new JLabel(m.name);
                     nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -187,10 +217,11 @@ public class ClientChatPanel extends JPanel {
         textPane.setText(text);
         textPane.setEditable(false);
         textPane.setOpaque(false);
-        // Font này hỗ trợ emoji màu trên Windows
+        // Font này hỗ trợ emoji màu trên Windows 10/11
         textPane.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         textPane.setForeground(isSelf ? Color.WHITE : Color.BLACK);
 
+        // Tính toán kích thước tự động
         int width = Math.min(400, getFontMetrics(textPane.getFont()).stringWidth(text) + 30);
         textPane.setPreferredSize(new Dimension(width, textPane.getPreferredSize().height));
 
@@ -232,7 +263,7 @@ public class ClientChatPanel extends JPanel {
             if (base64Audio != null) AudioUtils.playBase64Audio(base64Audio);
         });
 
-        // Vẽ sóng âm (Giả lập)
+        // Vẽ sóng âm (Giả lập cho đẹp)
         JPanel waveForm = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -268,7 +299,7 @@ public class ClientChatPanel extends JPanel {
 
         new Thread(() -> {
             try {
-                if (base64 == null) return;
+                if (base64 == null || base64.isEmpty()) return;
                 byte[] btDataFile = Base64.getDecoder().decode(base64);
                 BufferedImage rawImage = ImageIO.read(new ByteArrayInputStream(btDataFile));
                 if (rawImage != null) {
@@ -289,8 +320,12 @@ public class ClientChatPanel extends JPanel {
                         imgLabel.setPreferredSize(null);
                         panel.revalidate(); panel.repaint();
                     });
+                } else {
+                    SwingUtilities.invokeLater(() -> imgLabel.setText("[Lỗi ảnh]"));
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> imgLabel.setText("[Lỗi tải ảnh]"));
+            }
         }).start();
         return panel;
     }
@@ -313,12 +348,14 @@ public class ClientChatPanel extends JPanel {
                     gifLabel.setPreferredSize(null);
                     panel.revalidate(); panel.repaint();
                 });
-            } catch (Exception e) { }
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> gifLabel.setText("[Lỗi GIF]"));
+            }
         }).start();
         return panel;
     }
 
-    // --- LỚP TÙY CHỈNH ---
+    // --- CÁC COMPONENT TÙY CHỈNH ---
 
     // Panel vẽ bong bóng chat bo tròn (Rounded)
     private static class BubblePanel extends JPanel {
@@ -334,14 +371,14 @@ public class ClientChatPanel extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             if (isSelf) g2.setColor(UiUtils.TEAL_COLOR);
             else g2.setColor(new Color(230, 230, 230));
-            // Bo tròn 18px
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+            // Bo tròn 20px
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    // Ô nhập liệu hình viên thuốc
+    // Ô nhập liệu hình viên thuốc (Rounded TextField)
     private static class RoundedTextField extends JTextField {
         private final int radius;
         public RoundedTextField(int radius) { this.radius = radius; setOpaque(false); }
@@ -350,17 +387,18 @@ public class ClientChatPanel extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Color bgColor = UIManager.getColor("TextField.background");
+            // Fix nền trắng cho Light Mode
             if (getParent() != null && getParent().getBackground().getRed() > 200) bgColor = new Color(240, 242, 245);
             g2.setColor(bgColor);
             g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, radius, radius);
-            g2.setColor(new Color(200, 200, 200));
+            g2.setColor(new Color(200, 200, 200)); // Viền xám nhạt
             g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, radius, radius);
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    // --- HELPER & ICONS (Giữ nguyên) ---
+    // --- HELPER METHODS & ICONS ---
     private GridBagConstraints createGBC(int anchor) {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridwidth = GridBagConstraints.REMAINDER; gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -386,10 +424,6 @@ public class ClientChatPanel extends JPanel {
             vertical.setValue(vertical.getMaximum());
         }
     }
-    private void setupIconButton(JButton btn, Icon icon) {
-        btn.setIcon(icon); btn.setText(""); btn.setBorderPainted(false); btn.setContentAreaFilled(false);
-        btn.setFocusPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR)); btn.setMargin(new Insets(0,0,0,0));
-    }
     public void setController(ClientController controller) { this.controller = controller; }
     public String getInputText() { return inputField.getText(); }
     public void clearInputField() { inputField.setText(""); }
@@ -410,7 +444,7 @@ public class ClientChatPanel extends JPanel {
         popup.add(panel); popup.show(invoker, 0, -100);
     }
 
-    // --- ICON CLASSES (Giữ nguyên) ---
+    // --- ICON CLASSES (Vector Icons) ---
     private static class MicIcon implements Icon {
         private final int size; private final Color color;
         public MicIcon(int size, Color color) { this.size = size; this.color = color; }
