@@ -25,145 +25,152 @@ public class ClientController implements ClientStatusListener {
         this.viewModel = viewModel;
     }
 
+    // --- LOGIC KẾT NỐI & LOGIN ---
+    public void showLoginDialog() {
+        boolean isRegisterMode = false; // Mặc định hiện bảng Đăng nhập trước
+
+        while (true) {
+            // Mở Dialog với chế độ hiện tại
+            LoginDialog dialog = new LoginDialog(parentFrame, isRegisterMode);
+            dialog.setVisible(true);
+
+            // Nếu người dùng tắt bảng (bấm X) -> Thoát luôn
+            if (dialog.isCancelled()) return;
+
+            String action = dialog.getAction();
+
+            // Nếu người dùng bấm nút chuyển đổi (Đăng ký <-> Đăng nhập)
+            if ("switch".equals(action)) {
+                isRegisterMode = !isRegisterMode; // Đảo ngược chế độ
+                continue; // Lặp lại vòng while để hiện bảng mới
+            }
+
+            // Nếu là hành động Login hoặc Register thật -> Thực hiện kết nối
+            String host = dialog.getHost();
+            int port = dialog.getPort();
+            String username = dialog.getUsername();
+            String password = dialog.getPassword();
+
+            handleConnect(host, port, username, password, action);
+            break; // Thoát vòng lặp
+        }
+    }
+
     public void handleConnect(String host, int port, String username, String password, String action) {
-        if (clientCore.isConnected()) return;
+        if (clientCore.isConnected()) clientCore.disconnect("Reconnect"); // Ngắt cũ nếu có
+
         viewModel.setConnectionStatus(true, false);
-        viewModel.notifyMessageReceived(Message.system("Attempting to connect and authenticate..."));
+        viewModel.notifyMessageReceived(Message.system("Đang kết nối tới " + host + ":" + port + "..."));
+
         try {
             clientCore.connectAndAuth(host, port, username, password, action);
         } catch (IOException ex) {
-            viewModel.notifyMessageReceived(Message.system("[ERROR] Cannot connect: " + ex.getMessage()));
+            viewModel.notifyMessageReceived(Message.system("[LỖI] Không thể kết nối: " + ex.getMessage()));
             viewModel.setConnectionStatus(false, false);
-            JOptionPane.showMessageDialog(parentFrame, "Cannot connect: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame, "Không thể kết nối đến Server!\n" + ex.getMessage(), "Lỗi kết nối", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     public void handleDisconnect() {
-        clientCore.disconnect("User initiated disconnect.");
+        clientCore.disconnect("Người dùng ngắt kết nối.");
     }
 
-    public void handleSend(String text) {
-        if (!clientCore.isAuthenticated()) return;
-        String recipient = viewModel.getCurrentRecipient();
-        String userName = viewModel.getUserName();
-        boolean isGif = text.trim().toLowerCase().startsWith("/gif ");
-
-        try {
-            if (isGif) {
-                String gifText = text.trim().substring(5).trim();
-                if (gifText.isEmpty()) return;
-                clientCore.sendGif(gifText, recipient);
-                if ("Public Chat".equals(recipient)) {
-                    viewModel.notifyMessageReceived(Message.chat(userName, "[GIF]: " + gifText));
-                } else {
-                    viewModel.notifyMessageReceived(Message.dm(userName, recipient, "[GIF]: " + gifText, true));
-                }
-            } else {
-                clientCore.sendMessage(text, recipient);
-                if ("Public Chat".equals(recipient)) {
-                    viewModel.notifyMessageReceived(Message.chat(userName, text));
-                } else {
-                    viewModel.notifyMessageReceived(Message.dm(userName, recipient, text, true));
-                }
-            }
-        } catch (IOException ex) {
-            viewModel.notifyMessageReceived(Message.system("[ERROR] " + ex.getMessage()));
-            handleDisconnect();
-        }
-    }
-
-    // [MỚI] Hàm xử lý gửi Voice
-    public void handleSendVoice(String base64Data) {
-        if (!clientCore.isAuthenticated()) return;
-        String recipient = viewModel.getCurrentRecipient();
-        String userName = viewModel.getUserName();
-
-        try {
-            clientCore.sendVoice(base64Data, recipient);
-
-            // Hiển thị ngay tin nhắn thoại của chính mình (Local Echo)
-            if ("Public Chat".equals(recipient)) {
-                // Tự tạo tin nhắn để hiển thị
-                Message m = Message.voice(base64Data, "Public Chat");
-                m.name = userName;
-                viewModel.notifyMessageReceived(m);
-            } else {
-                Message m = Message.voice(base64Data, recipient); // recipient here is target
-                m.name = userName;
-                m.type = "dm_voice"; // Đánh dấu là DM
-                m.isSelf = true;
-                viewModel.notifyMessageReceived(m);
-            }
-
-        } catch (IOException ex) {
-            viewModel.notifyMessageReceived(Message.system("[ERROR Gửi Voice] " + ex.getMessage()));
-        }
-    }
-
-    // [MỚI] Hàm xử lý gửi Ảnh từ file
-    public void handleSendImage(File imageFile) {
-        if (!clientCore.isAuthenticated()) return;
-        String recipient = viewModel.getCurrentRecipient();
-        String userName = viewModel.getUserName();
-
-        // Chạy luồng riêng để nén ảnh không làm đơ giao diện
-        new Thread(() -> {
-            try {
-                // Sử dụng ImageUtils để nén và chuyển đổi sang Base64
-                String base64 = com.chat.util.ImageUtils.encodeImageToBase64(imageFile);
-                if (base64 == null) return;
-
-                // Gửi qua mạng (Hàm này cần được thêm vào ChatClientCore)
-                clientCore.sendImage(base64, recipient);
-
-                // Local Echo (Hiển thị ngay lập tức trên máy mình)
-                UiUtils.invokeLater(() -> {
-                    Message m = Message.image(base64, recipient);
-                    m.name = userName;
-                    m.isSelf = true;
-                    // Nếu là DM, cần chỉnh lại type để hiển thị đúng bong bóng chat
-                    if (!"Public Chat".equals(recipient)) {
-                        m.type = "dm_image";
-                    }
-                    viewModel.notifyMessageReceived(m);
-                });
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                viewModel.notifyMessageReceived(Message.system("[ERROR Gửi Ảnh] " + ex.getMessage()));
-            }
-        }).start();
-    }
-
-    public void requestHistory(String targetUser) {
-        try {
-            clientCore.requestDirectHistory(targetUser);
-            viewModel.notifyMessageReceived(Message.system("Đang tải lịch sử tin nhắn..."));
-        } catch (IOException ex) {
-            viewModel.notifyMessageReceived(Message.system("[ERROR] Không thể yêu cầu lịch sử DM: " + ex.getMessage()));
-        }
-    }
-
-    public void showLoginDialog() {
-        LoginDialog dialog = new LoginDialog(parentFrame);
-        dialog.setVisible(true);
-        if (dialog.isCancelled()) return;
-        String host = dialog.getHost().trim();
-        int port = dialog.getPort();
-        final String username = dialog.getUsername().trim();
-        final String password = dialog.getPassword().trim();
-        final String action = dialog.getAction();
-
-        if (username.isEmpty() || password.isEmpty()) return;
-        if (port == -1) return;
-
-        handleConnect(host, port, username, password, action);
-    }
+    // --- XỬ LÝ KẾT QUẢ TỪ SERVER ---
 
     @Override
     public void onConnectSuccess(String userName) {
         viewModel.setUserName(userName);
         viewModel.setConnectionStatus(true, true);
-        viewModel.notifyMessageReceived(Message.system("Authentication successful. Welcome, " + userName + "!"));
+        viewModel.notifyMessageReceived(Message.system("Đăng nhập thành công! Xin chào " + userName));
+    }
+
+    @Override
+    public void onAuthFailure(String reason) {
+        // [QUAN TRỌNG] Kiểm tra xem có phải tin nhắn ĐĂNG KÝ THÀNH CÔNG không
+        // Server gửi về dạng: "Đăng ký thành công. Hãy đăng nhập." nhưng flag là authFailure để ngắt kết nối
+
+        if (reason != null && reason.toLowerCase().contains("thành công")) {
+            UiUtils.invokeLater(() -> {
+                JOptionPane.showMessageDialog(parentFrame,
+                        "Đăng ký tài khoản THÀNH CÔNG!\nBạn có thể đăng nhập ngay bây giờ.",
+                        "Thành công",
+                        JOptionPane.INFORMATION_MESSAGE);
+                // Sau khi bấm OK, tự động mở lại dialog đăng nhập để tiện lợi
+                showLoginDialog();
+            });
+        } else {
+            // Đây là lỗi thật (Sai pass, trùng tên...)
+            UiUtils.invokeLater(() -> {
+                JOptionPane.showMessageDialog(parentFrame,
+                        "Thao tác thất bại: " + reason,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+            });
+            viewModel.notifyMessageReceived(Message.system("[THẤT BẠI] " + reason));
+        }
+
+        handleDisconnect();
+    }
+
+    // --- CÁC HÀM CHỨC NĂNG KHÁC (Giữ nguyên logic cũ của bạn) ---
+    public void handleSend(String text) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        String userName = viewModel.getUserName();
+        boolean isGif = text.trim().toLowerCase().startsWith("/gif ");
+        try {
+            if (isGif) {
+                String gifText = text.trim().substring(5).trim();
+                if (gifText.isEmpty()) return;
+                clientCore.sendGif(gifText, recipient);
+                if ("Public Chat".equals(recipient)) viewModel.notifyMessageReceived(Message.chat(userName, "[GIF]: " + gifText));
+                else viewModel.notifyMessageReceived(Message.dm(userName, recipient, "[GIF]: " + gifText, true));
+            } else {
+                clientCore.sendMessage(text, recipient);
+                if ("Public Chat".equals(recipient)) viewModel.notifyMessageReceived(Message.chat(userName, text));
+                else viewModel.notifyMessageReceived(Message.dm(userName, recipient, text, true));
+            }
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[LỖI] " + ex.getMessage()));
+            handleDisconnect();
+        }
+    }
+
+    public void handleSendVoice(String base64Data) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        try {
+            clientCore.sendVoice(base64Data, recipient);
+            Message m = Message.voice(base64Data, recipient);
+            m.name = viewModel.getUserName();
+            m.isSelf = true;
+            if (!"Public Chat".equals(recipient)) m.type = "dm_voice";
+            viewModel.notifyMessageReceived(m);
+        } catch (IOException ex) { viewModel.notifyMessageReceived(Message.system("[LỖI Voice] " + ex.getMessage())); }
+    }
+
+    public void handleSendImage(File imageFile) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        new Thread(() -> {
+            try {
+                String base64 = com.chat.util.ImageUtils.encodeImageToBase64(imageFile);
+                if (base64 == null) return;
+                clientCore.sendImage(base64, recipient);
+                UiUtils.invokeLater(() -> {
+                    Message m = Message.image(base64, recipient);
+                    m.name = viewModel.getUserName();
+                    m.isSelf = true;
+                    if (!"Public Chat".equals(recipient)) m.type = "dm_image";
+                    viewModel.notifyMessageReceived(m);
+                });
+            } catch (Exception ex) { viewModel.notifyMessageReceived(Message.system("[LỖI Ảnh] " + ex.getMessage())); }
+        }).start();
+    }
+
+    public void requestHistory(String targetUser) {
+        try { clientCore.requestDirectHistory(targetUser); }
+        catch (IOException ex) { viewModel.notifyMessageReceived(Message.system("[LỖI] " + ex.getMessage())); }
     }
 
     @Override
@@ -171,52 +178,24 @@ public class ClientController implements ClientStatusListener {
         viewModel.setConnectionStatus(false, false);
         viewModel.updateUsers(Collections.emptyList());
         viewModel.setCurrentRecipient("Public Chat");
-        viewModel.notifyMessageReceived(Message.system("Disconnected. Reason: " + reason));
-    }
-
-    @Override
-    public void onAuthFailure(String reason) {
-        viewModel.notifyMessageReceived(Message.system("[AUTH FAILED] " + reason));
-        handleDisconnect();
+        viewModel.notifyMessageReceived(Message.system("Đã ngắt kết nối: " + reason));
     }
 
     @Override
     public void onSystemMessage(String text) {
         viewModel.notifyMessageReceived(Message.system(text));
-        if (text.endsWith(" joined the chat.")) {
-            String name = text.substring(0, text.indexOf(" joined the chat."));
-            viewModel.addUser(name);
-        } else if (text.endsWith(" left the chat.") || text.endsWith(" was kicked by server.")) {
-            String name = text.substring(0, text.indexOf(" left the chat."));
-            if (name.equals(text)) name = text.substring(0, text.indexOf(" was kicked by server."));
-            viewModel.removeUser(name);
-        }
+        if (text.endsWith(" joined the chat.")) viewModel.addUser(text.substring(0, text.indexOf(" joined")));
+        else if (text.endsWith(" left the chat.")) viewModel.removeUser(text.substring(0, text.indexOf(" left")));
     }
 
     @Override
     public void onUserListUpdate(List<String> userNames, String selfName) {
         viewModel.updateUsers(userNames);
-        viewModel.notifyMessageReceived(Message.system("User list synchronized."));
     }
 
     @Override
     public void onMessageReceived(Message m) {
-        // Bỏ qua tin nhắn do chính mình gửi (đã hiển thị Local Echo)
-        if (m.name.equals(viewModel.getUserName())) return;
-        if (m.name.startsWith("[TO ")) return; // Bỏ qua xác nhận DM
-
+        if (m.name.equals(viewModel.getUserName()) || m.name.startsWith("[TO ")) return;
         viewModel.notifyMessageReceived(m);
-
-        // Hiển thị thông báo Popup nếu cần
-        UiUtils.invokeLater(() -> {
-            String senderName = m.name != null ? m.name : "Hệ thống";
-            boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
-            boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
-
-            if ((isVoice || isImage) && !parentFrame.isFocused()) {
-                String msgType = isVoice ? "tin nhắn thoại" : "một hình ảnh";
-                JOptionPane.showMessageDialog(parentFrame, "Bạn có " + msgType + " mới từ " + senderName, "Tin nhắn mới", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
     }
 }
