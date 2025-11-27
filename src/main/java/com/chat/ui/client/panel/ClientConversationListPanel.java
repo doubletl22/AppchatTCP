@@ -1,6 +1,7 @@
 package com.chat.ui.client.panel;
 
 import com.chat.model.ClientViewModel;
+import com.chat.util.UiUtils;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -16,50 +17,49 @@ public class ClientConversationListPanel extends JPanel {
     public ClientConversationListPanel(ClientViewModel viewModel) {
         this.viewModel = viewModel;
         setLayout(new BorderLayout());
-        setBackground(UIManager.getColor("Panel.background"));
+        setBackground(Color.WHITE); // Nền trắng
+        setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(230, 230, 230))); // Viền phải nhẹ
+
+        // Header "Đoạn chat"
+        JLabel title = new JLabel("Đoạn chat");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setBorder(new EmptyBorder(15, 15, 10, 15));
+        add(title, BorderLayout.NORTH);
 
         conversationList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         conversationList.setModel(viewModel.getConversationListModel());
-
-        // Tăng chiều cao mỗi dòng lên 60px để chứa Avatar to và thoáng hơn
-        conversationList.setFixedCellHeight(60);
-
-        // Padding xung quanh danh sách
-        setBorder(new EmptyBorder(10, 10, 10, 10));
-        conversationList.setBackground(UIManager.getColor("Panel.background"));
+        conversationList.setFixedCellHeight(70); // Cao hơn chút cho thoáng
+        conversationList.setBackground(Color.WHITE);
+        conversationList.setBorder(new EmptyBorder(5, 5, 5, 5));
 
         JScrollPane listScroll = new JScrollPane(conversationList);
-        listScroll.setBorder(BorderFactory.createEmptyBorder()); // Xóa viền xấu xí
+        listScroll.setBorder(BorderFactory.createEmptyBorder());
+        listScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-        // --- CUSTOM RENDERER CAO CẤP ---
+        // --- RENDERER CHO GIAO DIỆN SÁNG ---
         conversationList.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-
-                // Panel chứa nội dung của từng dòng
-                JPanel panel = new JPanel(new BorderLayout(15, 0)) { // Khoảng cách giữa Avatar và Text là 15px
+                JPanel panel = new JPanel(new BorderLayout(15, 0)) {
                     @Override
                     protected void paintComponent(Graphics g) {
                         super.paintComponent(g);
-                        // Chỉ vẽ nền khi item được chọn
                         if (isSelected) {
                             Graphics2D g2 = (Graphics2D) g.create();
                             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                            g2.setColor(UIManager.getColor("Component.accentColor"));
-
-                            // Vẽ hình chữ nhật bo tròn nằm gọn bên trong (Padding trên dưới 4px)
-                            g2.fill(new RoundRectangle2D.Double(0, 4, getWidth(), getHeight() - 8, 16, 16));
+                            // Nền khi chọn: Màu Xanh Ngọc nhưng rất nhạt (Transparency)
+                            g2.setColor(new Color(0, 150, 136, 30));
+                            g2.fill(new RoundRectangle2D.Double(5, 5, getWidth()-10, getHeight()-10, 15, 15));
                             g2.dispose();
                         }
                     }
                 };
-
-                // Quan trọng: Set Opaque false để trong suốt, cho phép thấy background của JList
                 panel.setOpaque(false);
-                panel.setBorder(new EmptyBorder(5, 10, 5, 10)); // Padding nội dung bên trong
+                panel.setBorder(new EmptyBorder(5, 10, 5, 10));
 
-                // 1. Tạo Avatar tròn
                 String name = value.toString();
+
+                // Avatar
                 JLabel avatarLabel = new JLabel() {
                     @Override
                     protected void paintComponent(Graphics g) {
@@ -67,85 +67,60 @@ public class ClientConversationListPanel extends JPanel {
                         Graphics2D g2 = (Graphics2D) g.create();
                         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                        // Màu nền Avatar: Trắng nếu đang chọn, Xám đậm nếu không chọn
-                        if (isSelected) g2.setColor(Color.WHITE);
-                        else g2.setColor(new Color(80, 80, 80));
+                        // Vòng tròn avatar
+                        g2.setColor(new Color(230, 230, 230));
+                        g2.fill(new Ellipse2D.Double(0, 0, 45, 45));
 
-                        g2.fill(new Ellipse2D.Double(0, 0, 40, 40)); // Kích thước Avatar 40x40
-
-                        // Vẽ chữ cái đầu tên
-                        if (isSelected) g2.setColor(UIManager.getColor("Component.accentColor"));
-                        else g2.setColor(Color.WHITE);
-
-                        g2.setFont(getFont().deriveFont(Font.BOLD, 18f));
+                        // Chữ cái đầu
+                        g2.setColor(UiUtils.TEAL_COLOR);
+                        g2.setFont(new Font("Segoe UI", Font.BOLD, 20));
                         String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase();
                         FontMetrics fm = g2.getFontMetrics();
-                        // Căn giữa chữ
-                        g2.drawString(letter, (40 - fm.stringWidth(letter)) / 2, (40 - fm.getAscent()) / 2 + fm.getAscent() - 2);
+                        g2.drawString(letter, (45 - fm.stringWidth(letter)) / 2, (45 - fm.getAscent()) / 2 + fm.getAscent() - 2);
                         g2.dispose();
                     }
                     @Override
-                    public Dimension getPreferredSize() { return new Dimension(40, 40); }
+                    public Dimension getPreferredSize() { return new Dimension(45, 45); }
                 };
 
-                // 2. Phần Text (Tên + Trạng thái phụ)
+                // Tên User
                 JPanel textPanel = new JPanel(new GridLayout(2, 1));
                 textPanel.setOpaque(false);
-
                 JLabel nameLabel = new JLabel(name);
-                nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
-                nameLabel.setForeground(isSelected ? Color.WHITE : UIManager.getColor("Label.foreground"));
+                nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+                nameLabel.setForeground(Color.BLACK); // Màu chữ đen
 
-                // Dòng phụ (Subtitle) giả lập
-                JLabel subLabel = new JLabel(isSelected ? "Đang hoạt động" : "Click để chat");
-                subLabel.setFont(subLabel.getFont().deriveFont(Font.PLAIN, 11f));
-                subLabel.setForeground(isSelected ? new Color(230, 230, 230) : Color.GRAY);
+                JLabel subLabel = new JLabel(isSelected ? "Đang chat..." : "Click để xem");
+                subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                subLabel.setForeground(Color.GRAY);
 
                 textPanel.add(nameLabel);
                 textPanel.add(subLabel);
 
                 panel.add(avatarLabel, BorderLayout.WEST);
                 panel.add(textPanel, BorderLayout.CENTER);
-
                 return panel;
             }
         });
 
         add(listScroll, BorderLayout.CENTER);
 
-        // Mặc định chọn dòng đầu
         if (viewModel.getConversationListModel().getSize() > 0) {
             conversationList.setSelectedIndex(0);
         }
     }
 
-    public void setListModel(ListModel<String> model) {
-        conversationList.setModel(model);
-    }
-
-    public void addListSelectionListener(ListSelectionListener listener) {
-        conversationList.addListSelectionListener(listener);
-    }
-
-    public String getSelectedValue() {
-        return conversationList.getSelectedValue();
-    }
-
+    public void setListModel(ListModel<String> model) { conversationList.setModel(model); }
+    public void addListSelectionListener(ListSelectionListener listener) { conversationList.addListSelectionListener(listener); }
+    public String getSelectedValue() { return conversationList.getSelectedValue(); }
     public void restoreSelection(String recipient) {
-        int index = -1;
         ListModel<String> model = conversationList.getModel();
-
         for (int i = 0; i < model.getSize(); i++) {
             if (model.getElementAt(i).equals(recipient)) {
-                index = i;
-                break;
+                conversationList.setSelectedIndex(i);
+                return;
             }
         }
-
-        if (index != -1) {
-            conversationList.setSelectedIndex(index);
-        } else {
-            conversationList.setSelectedIndex(0);
-        }
+        conversationList.setSelectedIndex(0);
     }
 }
