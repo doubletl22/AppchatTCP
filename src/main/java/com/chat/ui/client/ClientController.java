@@ -168,6 +168,38 @@ public class ClientController implements ClientStatusListener {
         }).start();
     }
 
+    // [MỚI] Hàm xử lý gửi Sticker - Đã thêm vào để đồng bộ với nút Sticker
+    public void handleSendSticker(String stickerPath) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        String userName = viewModel.getUserName();
+
+        // Gửi chuỗi đặc biệt để DatabaseManager nhận diện đây là Sticker khi lưu lịch sử
+        // DatabaseManager kiểm tra: text.startsWith("[STICKER]:")
+        String messageContent = "[STICKER]: " + stickerPath;
+
+        try {
+            // Gửi qua mạng (Sử dụng sendMessage thông thường với nội dung đặc biệt)
+            clientCore.sendMessage(messageContent, recipient);
+
+            // Cập nhật giao diện ngay lập tức (Local Echo)
+            UiUtils.invokeLater(() -> {
+                Message m = Message.sticker(stickerPath, recipient);
+                m.name = userName;
+                m.isSelf = true;
+
+                // Nếu là chat riêng (DM), cần đảm bảo type đúng để ClientChatPanel xử lý
+                if (!"Public Chat".equals(recipient)) {
+                    m.type = "dm_sticker";
+                }
+
+                viewModel.notifyMessageReceived(m);
+            });
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[LỖI Sticker] " + ex.getMessage()));
+        }
+    }
+
     // [FIX] Cập nhật hàm này để xử lý cả Public và Private
     public void requestHistory(String targetUser) {
         try {
@@ -205,14 +237,30 @@ public class ClientController implements ClientStatusListener {
 
     @Override
     public void onMessageReceived(Message m) {
-        // [FIX] Kiểm tra xem có phải tin nhắn lịch sử không (dựa trên type chứa chuỗi "history")
+        // [FIX] Kiểm tra xem có phải tin nhắn lịch sử không
         boolean isHistory = m.type != null && m.type.contains("history");
 
-        // Nếu KHÔNG phải lịch sử, và là tin nhắn của chính mình -> Return (để tránh hiển thị 2 lần)
-        // Nếu LÀ lịch sử -> Cho phép hiển thị, kể cả của chính mình
+        // Nếu KHÔNG phải lịch sử, và là tin nhắn của chính mình -> Return (để tránh hiển thị 2 lần do Local Echo)
         if (!isHistory && (m.name.equals(viewModel.getUserName()) || m.name.startsWith("[TO "))) {
             return;
         }
+
+        // [FIX QUAN TRỌNG] Xử lý tin nhắn Sticker thời gian thực (Real-time)
+        // Khi nhận tin nhắn mới từ người khác, nó đang ở dạng text: "[STICKER]: /path/..."
+        // Ta cần phát hiện và chuyển đổi nó thành type 'sticker' ngay lập tức.
+        if (m.text != null && m.text.startsWith("[STICKER]:")) {
+            // 1. Cắt bỏ tiền tố "[STICKER]: " để lấy đường dẫn file ảnh sạch
+            String rawPath = m.text.substring(10).trim(); // độ dài của "[STICKER]:" là 10
+            m.text = rawPath;
+
+            // 2. Cập nhật loại tin nhắn (type) để Panel biết đường vẽ hình
+            if (m.type != null && (m.type.equals("dm") || m.type.startsWith("dm_"))) {
+                m.type = "dm_sticker";
+            } else {
+                m.type = "sticker";
+            }
+        }
+
         viewModel.notifyMessageReceived(m);
     }
 }

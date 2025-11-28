@@ -4,6 +4,7 @@ import com.chat.model.ClientViewModel;
 import com.chat.model.Message;
 import com.chat.ui.client.ClientController;
 import com.chat.ui.client.dialog.GifPickerDialog;
+import com.chat.ui.client.dialog.StickerPickerDialog; // [MỚI] Thêm import này
 import com.chat.util.AudioUtils;
 import com.chat.util.UiUtils;
 
@@ -95,7 +96,9 @@ public class ClientChatPanel extends JPanel {
 
         imageBtn.addActionListener(e -> chooseAndSendImage());
         gifBtn.addActionListener(e -> showGifPicker());
-        stickerBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Tính năng Sticker đang phát triển!"));
+
+        // [FIX] Khôi phục sự kiện mở bảng chọn Sticker
+        stickerBtn.addActionListener(e -> showStickerPicker());
 
         gbc.gridx = 0; bottomInput.add(micBtn, gbc);
         gbc.gridx = 1; bottomInput.add(imageBtn, gbc);
@@ -165,6 +168,9 @@ public class ClientChatPanel extends JPanel {
         boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
                 "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
         boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
+        // [MỚI] Nhận diện tin nhắn Sticker
+        boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type) ||
+                "sticker_history".equals(m.type) || "dm_sticker_history".equals(m.type);
 
         UiUtils.invokeLater(() -> {
             if ("system".equals(m.type)) {
@@ -178,6 +184,7 @@ public class ClientChatPanel extends JPanel {
                 if (isVoice) messageBubble = createVoiceBubble(m.data, isSelf);
                 else if (isGif) messageBubble = createGifBubble(m.text, isSelf);
                 else if (isImage) messageBubble = createImageBubble(m.data, isSelf);
+                else if (isSticker) messageBubble = createStickerBubble(m.text, isSelf); // [MỚI] Xử lý hiển thị Sticker
                 else messageBubble = createChatBubble(m.text, isSelf);
 
                 // Container bao ngoài để hiển thị tên người gửi (nếu cần)
@@ -355,6 +362,35 @@ public class ClientChatPanel extends JPanel {
         return panel;
     }
 
+    // 5. [MỚI] Bong bóng Sticker (Load từ Resource)
+    private JPanel createStickerBubble(String stickerPath, boolean isSelf) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        // Kích thước mặc định của sticker hiển thị trên chat
+        int displaySize = 120;
+
+        JLabel stickerLabel = new JLabel();
+        stickerLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        // Load sticker từ resource path
+        try {
+            URL url = getClass().getResource(stickerPath);
+            if (url != null) {
+                ImageIcon icon = new ImageIcon(url);
+                // Resize sticker
+                Image img = icon.getImage().getScaledInstance(displaySize, displaySize, Image.SCALE_SMOOTH);
+                stickerLabel.setIcon(new ImageIcon(img));
+            } else {
+                stickerLabel.setText("[Sticker lỗi]");
+            }
+        } catch (Exception e) {
+            stickerLabel.setText("[Sticker lỗi]");
+        }
+
+        panel.add(stickerLabel, BorderLayout.CENTER);
+        return panel;
+    }
+
     // --- CÁC COMPONENT TÙY CHỈNH ---
 
     // Panel vẽ bong bóng chat bo tròn (Rounded)
@@ -430,6 +466,18 @@ public class ClientChatPanel extends JPanel {
     public void clearChatDisplay() { UiUtils.invokeLater(() -> { chatDisplayPanel.removeAll(); chatDisplayPanel.revalidate(); chatDisplayPanel.repaint(); }); }
     private void chooseAndSendImage() { JFileChooser fc = new JFileChooser(); fc.setDialogTitle("Chọn ảnh"); fc.setFileFilter(new FileNameExtensionFilter("Ảnh", "jpg", "png", "gif")); if(fc.showOpenDialog(this)==JFileChooser.APPROVE_OPTION && controller!=null) controller.handleSendImage(fc.getSelectedFile()); }
     private void showGifPicker() { JFrame f=(JFrame)SwingUtilities.getWindowAncestor(this); new GifPickerDialog(f, url -> { inputField.setText("/gif "+url); if(controller!=null) controller.handleSend(inputField.getText()); clearInputField(); }).setVisible(true); }
+
+    // [FIX] Hàm mở bảng chọn Sticker và gọi Controller
+    private void showStickerPicker() {
+        JFrame f = (JFrame) SwingUtilities.getWindowAncestor(this);
+        new StickerPickerDialog(f, stickerPath -> {
+            if (controller != null) {
+                // Đảm bảo bạn đã thêm hàm này vào ClientController.java
+                controller.handleSendSticker(stickerPath);
+            }
+        }).setVisible(true);
+    }
+
     private void showEmojiPopup(Component invoker) {
         JPopupMenu popup = new JPopupMenu(); popup.setBackground(Color.WHITE); popup.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         String[] emojis = {"😀", "😂", "🥰", "😎", "😭", "👍", "👎", "❤️", "🔥", "🎉"};
