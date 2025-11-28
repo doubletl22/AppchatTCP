@@ -2,6 +2,7 @@ package com.chat.util;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,9 +13,11 @@ public class UiUtils {
     public static final String DATE_FORMAT = "HH:mm:ss";
     public static final SimpleDateFormat TIME_FORMATTER = new SimpleDateFormat(DATE_FORMAT);
 
-    /**
-     * Helper để chạy code trên luồng giao diện (EDT) an toàn
-     */
+    // [QUAN TRỌNG] Biến màu này đang bị thiếu, gây lỗi Compile bên ClientChatPanel
+    public static final Color TEAL_COLOR = new Color(0, 150, 136);
+
+    private static boolean isDarkMode = false;
+
     public static void invokeLater(Runnable runnable) {
         if (SwingUtilities.isEventDispatchThread()) {
             runnable.run();
@@ -23,66 +26,62 @@ public class UiUtils {
         }
     }
 
-    /**
-     * Thiết lập giao diện FlatLaf với các tùy chỉnh hiện đại
-     */
     public static void setupLookAndFeel() {
         try {
-            // 1. Cấu hình khử răng cưa cho font chữ (Anti-aliasing)
             System.setProperty("awt.useSystemAAFontSettings", "on");
             System.setProperty("swing.aatext", "true");
 
-            // 2. Cấu hình Bo góc (Rounding) cho các thành phần UI
-            // Giá trị càng lớn thì góc càng tròn (đơn vị: pixel)
-            UIManager.put("Button.arc", 12);
-            UIManager.put("Component.arc", 12);
-            UIManager.put("ProgressBar.arc", 12);
-            UIManager.put("TextComponent.arc", 12);
+            UIManager.put("Button.arc", 15);
+            UIManager.put("Component.arc", 15);
+            UIManager.put("TextComponent.arc", 15);
+            UIManager.put("Component.accentColor", TEAL_COLOR);
 
-            // 3. Cấu hình Màu chủ đạo (Accent Color)
-            // Sử dụng màu xanh dương tươi (kiểu Messenger/Apple) thay vì màu mặc định
-            UIManager.put("Component.accentColor", new Color(0, 122, 255));
-            // Màu khi focus vào input/button
-            UIManager.put("Component.focusWidth", 1); // Viền focus mỏng lại cho tinh tế
-            UIManager.put("Component.innerFocusWidth", 0);
-
-            // 4. Cấu hình Padding (Khoảng cách nội dung bên trong)
-            // Giúp Text Field và Button trông thoáng hơn
-            UIManager.put("TextField.margin", new Insets(6, 10, 6, 10)); // Trên, Trái, Dưới, Phải
-            UIManager.put("Button.margin", new Insets(6, 16, 6, 16));
-
-            // 5. Cài đặt font chữ mặc định (Tùy chọn, Segoe UI cho Windows trông đẹp hơn)
-            // Nếu muốn dùng font mặc định của hệ thống thì bỏ qua dòng này
-            // UIManager.put("defaultFont", new Font("Segoe UI", Font.PLAIN, 13));
-
-            // 6. Kích hoạt FlatLaf Dark Mode
-            FlatDarkLaf.setup();
+            // Cài đặt theme mặc định
+            applyTheme(false);
 
         } catch (Exception ex) {
-            System.err.println("Failed to initialize FlatLaf: " + ex);
-            // Fallback về giao diện mặc định nếu lỗi
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
+            ex.printStackTrace();
         }
     }
 
-    /**
-     * Tạo Label hiển thị thông báo hệ thống (căn giữa, màu xám)
-     */
+    public static void toggleTheme() {
+        isDarkMode = !isDarkMode;
+        applyTheme(true);
+    }
+
+    private static void applyTheme(boolean updateUI) {
+        try {
+            if (isDarkMode) {
+                FlatDarkLaf.setup();
+                UIManager.put("App.selfMessageBackground", new Color(0, 121, 107));
+                UIManager.put("App.selfMessageForeground", Color.WHITE);
+                UIManager.put("App.otherMessageBackground", new Color(60, 63, 65));
+                UIManager.put("App.otherMessageForeground", new Color(220, 220, 220));
+                UIManager.put("App.inputBackground", new Color(43, 43, 43));
+            } else {
+                FlatLightLaf.setup();
+                UIManager.put("App.selfMessageBackground", TEAL_COLOR);
+                UIManager.put("App.selfMessageForeground", Color.WHITE);
+                UIManager.put("App.otherMessageBackground", new Color(230, 230, 230));
+                UIManager.put("App.otherMessageForeground", Color.BLACK);
+                // Màu nền input cho Light Mode
+                UIManager.put("App.inputBackground", new Color(240, 242, 245));
+            }
+
+            if (updateUI) {
+                FlatLaf.updateUI();
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
     public static JLabel createSystemMessageLabel(String text) {
         String displayTime = "[" + TIME_FORMATTER.format(new Date()) + "] ";
         JLabel systemLabel = new JLabel(displayTime + text, SwingConstants.CENTER);
-
-        // Màu xám nhạt để không gây chú ý quá mức
-        systemLabel.setForeground(new Color(150, 150, 150));
-
-        // Font in nghiêng nhỏ hơn chút
-        systemLabel.setFont(systemLabel.getFont().deriveFont(Font.ITALIC, 11f));
-
-        // Thêm khoảng cách trên dưới để tách biệt với tin nhắn chat
-        systemLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
+        systemLabel.setForeground(Color.GRAY);
+        systemLabel.setFont(systemLabel.getFont().deriveFont(Font.ITALIC, 12f));
+        systemLabel.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
         return systemLabel;
     }
 }
