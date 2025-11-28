@@ -4,7 +4,7 @@ import com.chat.model.ClientViewModel;
 import com.chat.model.Message;
 import com.chat.ui.client.ClientController;
 import com.chat.ui.client.dialog.GifPickerDialog;
-import com.chat.ui.client.dialog.StickerPickerDialog; // [MỚI] Import Dialog Sticker
+import com.chat.ui.client.dialog.StickerPickerDialog;
 import com.chat.util.AudioUtils;
 import com.chat.util.UiUtils;
 
@@ -88,9 +88,10 @@ public class ClientChatPanel extends JPanel {
         // Logic gửi ảnh
         imageBtn.addActionListener(e -> chooseAndSendImage());
 
+        // Logic gửi GIF
         gifBtn.addActionListener(e -> showGifPicker());
 
-        // [MỚI] Mở dialog chọn Sticker
+        // Logic gửi Sticker
         stickerBtn.addActionListener(e -> {
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
             StickerPickerDialog dialog = new StickerPickerDialog(parentFrame, (stickerPath) -> {
@@ -218,8 +219,10 @@ public class ClientChatPanel extends JPanel {
         boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
                 "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
         boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
-        // [MỚI] Kiểm tra tin nhắn Sticker
-        boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type);
+
+        // [CẬP NHẬT] Kiểm tra cả tin nhắn Sticker mới và Sticker lịch sử
+        boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type) ||
+                "sticker_history".equals(m.type) || "dm_sticker_history".equals(m.type);
 
         boolean isSelf;
         if (m.name != null && m.name.startsWith("[TO ")) isSelf = true;
@@ -235,7 +238,7 @@ public class ClientChatPanel extends JPanel {
                 if (isVoice) messageBubble = createVoiceBubble(m.name, m.data, isSelf);
                 else if (isGif) messageBubble = createGifBubble(m.name, m.text, isSelf);
                 else if (isImage) messageBubble = createImageBubble(m.name, m.data, isSelf);
-                else if (isSticker) messageBubble = createStickerBubble(m.name, m.text, isSelf); // [MỚI]
+                else if (isSticker) messageBubble = createStickerBubble(m.name, m.text, isSelf); // Sử dụng bong bóng Sticker
                 else messageBubble = createChatBubble(m.name, m.text, isSelf);
 
                 JPanel alignmentWrapper = new JPanel(new FlowLayout(isSelf ? FlowLayout.RIGHT : FlowLayout.LEFT, 10, 2));
@@ -258,7 +261,7 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // [MỚI] Tạo bong bóng hiển thị Sticker
+    // Tạo bong bóng hiển thị Sticker
     private JPanel createStickerBubble(String sender, String stickerPath, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));
@@ -293,7 +296,7 @@ public class ClientChatPanel extends JPanel {
         return bubblePanel;
     }
 
-    // [MỚI] Tạo bong bóng chat chứa Ảnh (Decode Base64)
+    // Tạo bong bóng chat chứa Ảnh (Decode Base64)
     private JPanel createImageBubble(String sender, String base64Data, boolean isSelf) {
         JPanel bubblePanel = new JPanel();
         bubblePanel.setLayout(new BoxLayout(bubblePanel, BoxLayout.Y_AXIS));

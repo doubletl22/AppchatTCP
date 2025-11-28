@@ -44,7 +44,7 @@ public class Message {
         return m;
     }
 
-    // [MỚI] Voice Message for sending
+    // Voice Message for sending
     public static Message voice(String base64Data, String recipient) {
         Message m = new Message();
         m.type = "Public Chat".equals(recipient) ? "voice" : "dm_voice";
@@ -54,7 +54,7 @@ public class Message {
         return m;
     }
 
-    // [MỚI] Image Message for sending (Thêm mới cho tính năng gửi ảnh)
+    // Image Message for sending
     public static Message image(String base64Data, String recipient) {
         Message m = new Message();
         m.type = "Public Chat".equals(recipient) ? "image" : "dm_image";
@@ -64,7 +64,7 @@ public class Message {
         return m;
     }
 
-    // [MỚI] Sticker Message for sending (Thêm mới cho tính năng Sticker)
+    // Sticker Message for sending
     public static Message sticker(String stickerPath, String recipient) {
         Message m = new Message();
         // Nếu chat chung thì type là "sticker", chat riêng là "dm_sticker"
@@ -127,34 +127,49 @@ public class Message {
         return m;
     }
 
-    // Public History
+    // Public History (Cập nhật xử lý Sticker cũ)
     public static Message history(String name, String text) {
         Message m = new Message();
         m.type = "history";
 
-        // Handle history items that might be GIFs
-        if (text != null && text.startsWith("[GIF]:")) {
-            m.type = "gif_history";
-            m.text = text.substring("[GIF]:".length()).trim();
-        } else {
-            m.text = text;
+        if (text != null) {
+            if (text.startsWith("[GIF]:")) {
+                m.type = "gif_history";
+                m.text = text.substring("[GIF]:".length()).trim();
+            }
+            // [QUAN TRỌNG] Nhận diện lịch sử Sticker
+            else if (text.startsWith("[STICKER]:")) {
+                m.type = "sticker_history";
+                m.text = text.substring("[STICKER]:".length()).trim();
+            }
+            else {
+                m.text = text;
+            }
         }
 
         m.name = name;
         return m;
     }
 
+    // DM History (Cập nhật xử lý Sticker cũ)
     public static Message directHistory(String sender, String text, String timestamp) {
         Message m = new Message();
         m.type = "dm_history";
         m.name = sender;
 
-        // Handle DM history items that might be GIFs
-        if (text != null && text.startsWith("[GIF]:")) {
-            m.type = "dm_gif_history";
-            m.text = text.substring("[GIF]:".length()).trim();
-        } else {
-            m.text = text;
+        if (text != null) {
+            if (text.startsWith("[GIF]:")) {
+                m.type = "dm_gif_history";
+                m.text = text.substring("[GIF]:".length()).trim();
+            }
+            // [QUAN TRỌNG] Nhận diện lịch sử DM Sticker
+            else if (text.startsWith("[STICKER]:")) {
+                m.type = "dm_sticker_history";
+                m.text = text.substring("[STICKER]:".length()).trim();
+            }
+            else {
+                m.text = text;
+            }
         }
 
         m.time = timestamp;
