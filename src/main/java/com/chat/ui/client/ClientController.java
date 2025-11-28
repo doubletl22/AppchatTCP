@@ -164,12 +164,23 @@ public class ClientController implements ClientStatusListener {
         }
     }
 
+    // Yêu cầu lịch sử DM (Chat riêng)
     public void requestHistory(String targetUser) {
         try {
             clientCore.requestDirectHistory(targetUser);
             viewModel.notifyMessageReceived(Message.system("Đang tải lịch sử tin nhắn..."));
         } catch (IOException ex) {
             viewModel.notifyMessageReceived(Message.system("[ERROR] Không thể yêu cầu lịch sử DM: " + ex.getMessage()));
+        }
+    }
+
+    // [MỚI] Yêu cầu lịch sử Chat Chung (Public Chat)
+    public void requestPublicChatHistory() {
+        try {
+            clientCore.requestPublicHistory();
+            viewModel.notifyMessageReceived(Message.system("Đang tải lại lịch sử chat chung..."));
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[Lỗi] Không thể tải lịch sử: " + ex.getMessage()));
         }
     }
 
@@ -231,14 +242,30 @@ public class ClientController implements ClientStatusListener {
 
     @Override
     public void onMessageReceived(Message m) {
-        // Bỏ qua tin nhắn do chính mình gửi (đã hiển thị Local Echo)
-        if (m.name.equals(viewModel.getUserName())) return;
-        if (m.name.startsWith("[TO ")) return; // Bỏ qua xác nhận DM
+        // [CẬP NHẬT] Logic lọc tin nhắn để KHÔNG ẩn tin nhắn lịch sử của chính mình
+
+        // 1. Kiểm tra xem đây có phải là tin nhắn Lịch sử không?
+        boolean isHistory = "history".equals(m.type) || "dm_history".equals(m.type) ||
+                "sticker_history".equals(m.type) || "dm_sticker_history".equals(m.type) ||
+                "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
+
+        // 2. Nếu KHÔNG PHẢI lịch sử, mà là tin nhắn của chính mình
+        // -> Bỏ qua (vì đã hiển thị Local Echo lúc gửi rồi)
+        // -> Logic này giúp tránh hiện 2 tin nhắn khi vừa gửi xong
+        if (!isHistory && m.name != null && m.name.equals(viewModel.getUserName())) {
+            return;
+        }
+
+        // 3. Bỏ qua tin nhắn xác nhận [TO ...] (Do server gửi về xác nhận đã gửi DM thành công)
+        if (m.name != null && m.name.startsWith("[TO ")) return;
 
         viewModel.notifyMessageReceived(m);
 
-        // Hiển thị thông báo Popup nếu cần
+        // Hiển thị thông báo Popup nếu cần (chỉ khi app không focus)
         UiUtils.invokeLater(() -> {
+            // Không thông báo nếu là tin lịch sử hoặc tin hệ thống
+            if (isHistory || "system".equals(m.type)) return;
+
             String senderName = m.name != null ? m.name : "Hệ thống";
             boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
             boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);

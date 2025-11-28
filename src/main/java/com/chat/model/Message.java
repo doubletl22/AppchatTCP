@@ -13,7 +13,7 @@ public class Message {
     public List<String> users; // Dành cho userlist
     public boolean isSelf = false; // Dành cho hiển thị cục bộ (Local Echo)
 
-    // [MỚI] Trường chứa dữ liệu âm thanh (Base64 string) hoặc hình ảnh
+    // Trường chứa dữ liệu âm thanh (Base64 string) hoặc hình ảnh
     public String data;
 
     public Message() {}
@@ -94,6 +94,13 @@ public class Message {
         Message m = new Message();
         m.type = "get_dm_history";
         m.targetName = targetUser;
+        return m;
+    }
+
+    // [MỚI] Yêu cầu tải lại lịch sử Chat Chung
+    public static Message getChatHistory() {
+        Message m = new Message();
+        m.type = "get_chat_history";
         return m;
     }
 
