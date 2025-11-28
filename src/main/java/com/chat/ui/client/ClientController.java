@@ -233,7 +233,7 @@ public class ClientController implements ClientStatusListener {
             viewModel.removeUser(name);
         }
     }
-
+/// /
     @Override
     public void onUserListUpdate(List<String> userNames, String selfName) {
         viewModel.updateUsers(userNames);
