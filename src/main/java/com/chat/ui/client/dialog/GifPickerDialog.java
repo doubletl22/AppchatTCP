@@ -16,7 +16,7 @@ public class GifPickerDialog extends JDialog {
     private final JPanel gridPanel;
     private final Consumer<String> onGifSelected;
     private final JScrollPane scrollPane;
-
+    //
     public GifPickerDialog(JFrame parent, Consumer<String> onGifSelected) {
         super(parent, "Kho GIF Online (Tenor)", true);
         this.onGifSelected = onGifSelected;

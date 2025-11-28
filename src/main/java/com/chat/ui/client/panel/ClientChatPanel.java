@@ -22,7 +22,7 @@ public class ClientChatPanel extends JPanel {
     private final JPanel chatDisplayPanel = new JPanel(new GridBagLayout());
     private final JTextField inputField = new JTextField();
     private final JButton sendBtn = new JButton();
-
+//kkk
     // Các nút chức năng
     private final JButton micBtn = new JButton("🎙");
     private final JButton imageBtn = new JButton("🖼");
