@@ -112,7 +112,7 @@ public class ClientController implements ClientStatusListener {
         handleDisconnect();
     }
 
-    // --- CÁC HÀM CHỨC NĂNG KHÁC (Giữ nguyên logic cũ của bạn) ---
+    // --- CÁC HÀM CHỨC NĂNG KHÁC ---
     public void handleSend(String text) {
         if (!clientCore.isAuthenticated()) return;
         String recipient = viewModel.getCurrentRecipient();
@@ -168,9 +168,19 @@ public class ClientController implements ClientStatusListener {
         }).start();
     }
 
+    // [FIX] Cập nhật hàm này để xử lý cả Public và Private
     public void requestHistory(String targetUser) {
-        try { clientCore.requestDirectHistory(targetUser); }
-        catch (IOException ex) { viewModel.notifyMessageReceived(Message.system("[LỖI] " + ex.getMessage())); }
+        try {
+            if ("Public Chat".equals(targetUser)) {
+                // Gọi hàm lấy lịch sử Chat chung
+                clientCore.requestPublicHistory();
+            } else {
+                // Gọi hàm lấy lịch sử Chat riêng
+                clientCore.requestDirectHistory(targetUser);
+            }
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[LỖI] " + ex.getMessage()));
+        }
     }
 
     @Override

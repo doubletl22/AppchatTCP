@@ -110,13 +110,11 @@ public class ClientView extends JFrame {
                     chatPanel.clearChatDisplay();
                     viewModel.setCurrentRecipient(selected);
 
-                    // Nếu không phải chat chung, tải lịch sử tin nhắn riêng
-                    if (!"Public Chat".equals(selected)) {
-                        controller.requestHistory(selected);
-                    }
+                    // [FIX] Luôn gọi requestHistory dù là Public hay Private
+                    // Logic phân loại đã được xử lý bên trong controller.requestHistory()
+                    controller.requestHistory(selected);
                 }
             }
         });
     }
 }
-
