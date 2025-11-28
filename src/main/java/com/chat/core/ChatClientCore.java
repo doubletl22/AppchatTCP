@@ -152,9 +152,7 @@ public class ChatClientCore {
         out.flush();
     }
 
-    /**
-     * Gửi tin nhắn GIF lên Server.
-     */
+    // Gửi tin nhắn GIF lên Server
     public void sendGif(String gifKeyword, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 
@@ -165,9 +163,18 @@ public class ChatClientCore {
         out.flush();
     }
 
-    /**
-     * Gửi tin nhắn Voice (Base64 Audio) lên Server.
-     */
+    // Gửi tin nhắn Sticker lên Server
+    public void sendSticker(String stickerPath, String recipient) throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
+
+        Message msgToSend = Message.sticker(stickerPath, recipient);
+
+        String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    // Gửi tin nhắn Voice (Base64 Audio) lên Server
     public void sendVoice(String base64Data, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 
@@ -178,9 +185,7 @@ public class ChatClientCore {
         out.flush();
     }
 
-    /**
-     * [MỚI] Gửi tin nhắn Ảnh (Base64 Image) lên Server.
-     */
+    // Gửi tin nhắn Ảnh (Base64 Image) lên Server
     public void sendImage(String base64Data, String recipient) throws IOException {
         if (!connected || !authenticated || out == null) throw new IOException("Not connected or authenticated.");
 
@@ -198,6 +203,17 @@ public class ChatClientCore {
         Message msgToSend = Message.getDirectHistory(targetName);
 
         String json = gson.toJson(msgToSend) + "\n";
+        out.write(json.getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    // [MỚI] Gửi yêu cầu lấy lịch sử Chat Chung
+    public void requestPublicHistory() throws IOException {
+        if (!connected || !authenticated || out == null) throw new IOException("Not connected.");
+
+        Message msg = Message.getChatHistory();
+
+        String json = gson.toJson(msg) + "\n";
         out.write(json.getBytes(StandardCharsets.UTF_8));
         out.flush();
     }

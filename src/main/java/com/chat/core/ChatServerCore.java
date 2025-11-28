@@ -85,21 +85,24 @@ public class ChatServerCore extends Thread {
             logText = "[CHAT] " + m.name + ": " + m.text;
 
         } else if ("gif".equals(m.type)) {
-            // Lưu cả link GIF vào DB
             dbManager.storeMessage(m.name, "[GIF]: " + m.text);
             logText = "[GIF] " + m.name + ": " + m.text;
 
         } else if ("voice".equals(m.type)) {
-            // [QUAN TRỌNG] Lưu Base64 vào DB (hoặc lưu text đại diện nhưng gửi đi phải có data)
-            // Ở đây ta lưu nội dung đại diện, nhưng khi broadcast M.DATA vẫn phải có
+            // Xử lý tin nhắn thoại công khai
             dbManager.storeMessage(m.name, "[Tin nhắn thoại]");
-            logText = "[VOICE] " + m.name + " sent voice.";
+            logText = "[VOICE] " + m.name + " sent a voice message.";
 
         } else if ("image".equals(m.type)) {
-            // [QUAN TRỌNG] Tương tự voice
+            // Xử lý tin nhắn ảnh công khai
             dbManager.storeMessage(m.name, "[Hình ảnh]");
-            logText = "[IMAGE] " + m.name + " sent image.";
+            logText = "[IMAGE] " + m.name + " sent an image.";
 
+        } else if ("sticker".equals(m.type)) {
+            // Xử lý tin nhắn Sticker công khai
+            // Lưu đường dẫn sticker vào DB với tiền tố [STICKER]:
+            dbManager.storeMessage(m.name, "[STICKER]:" + m.text);
+            logText = "[STICKER] " + m.name + ": " + m.text;
 
         } else if ("system".equals(m.type)) {
             logText = m.text;
@@ -145,11 +148,15 @@ public class ChatServerCore extends Thread {
             msgTypeToTarget = "dm_voice";
             msgTypeToSender = "dm_voice";
         } else if ("dm_image".equals(m.type)) {
-            // [MỚI] Xử lý tin nhắn ảnh riêng tư
             storedMessage = "[Hình ảnh]";
             logPrefix = "[DM IMAGE] ";
             msgTypeToTarget = "dm_image";
             msgTypeToSender = "dm_image";
+        } else if ("dm_sticker".equals(m.type)) {
+            storedMessage = "[STICKER]:" + m.text;
+            logPrefix = "[DM STICKER] ";
+            msgTypeToTarget = "dm_sticker";
+            msgTypeToSender = "dm_sticker";
         }
 
         // Lưu vào DB
@@ -166,7 +173,7 @@ public class ChatServerCore extends Thread {
         msgToTarget.name = sender.name;
         msgToTarget.targetName = targetName;
         msgToTarget.text = m.text;
-        msgToTarget.data = m.data; // [QUAN TRỌNG] Chuyển tiếp dữ liệu âm thanh/hình ảnh
+        msgToTarget.data = m.data; // Copy dữ liệu âm thanh/hình ảnh
 
         // 2. Gửi xác nhận cho người gửi (Sender)
         Message msgToSender = new Message();
@@ -174,7 +181,7 @@ public class ChatServerCore extends Thread {
         msgToSender.name = "[TO " + targetName + "]";
         msgToSender.targetName = targetName;
         msgToSender.text = m.text;
-        // Không cần gửi lại data cho người gửi để tiết kiệm băng thông
+        // Không gửi lại data cho người gửi để tiết kiệm băng thông
 
         sendToClient(target, msgToTarget);
         sendToClient(sender, msgToSender);
@@ -275,17 +282,17 @@ public class ChatServerCore extends Thread {
                     try {
                         Message m = gson.fromJson(l, Message.class);
                         if (m != null) {
-                            // 1. Xử lý Chat công khai (Text, GIF, Voice, Image)
-                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type) || "image".equals(m.type)) {
+                            // 1. Xử lý Chat công khai (Text, GIF, Voice, Image, Sticker)
+                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type) || "image".equals(m.type) || "sticker".equals(m.type)) {
                                 Message outMsg = new Message();
                                 outMsg.type = m.type;
                                 outMsg.name = name;
                                 outMsg.text = m.text;
-                                outMsg.data = m.data; // [QUAN TRỌNG] Copy dữ liệu voice/image
+                                outMsg.data = m.data; // Copy dữ liệu voice/image
                                 broadcast(outMsg);
 
-                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice, DM Image)
-                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type) || "dm_image".equals(m.type))
+                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice, DM Image, DM Sticker)
+                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type) || "dm_image".equals(m.type) || "dm_sticker".equals(m.type))
                                     && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);
@@ -293,6 +300,14 @@ public class ChatServerCore extends Thread {
                                 // 3. Xử lý yêu cầu lịch sử DM
                             } else if ("get_dm_history".equals(m.type) && m.targetName != null) {
                                 handleDirectHistoryRequest(this, m.targetName);
+
+                                // 4. [MỚI] Xử lý yêu cầu tải lại lịch sử Chat Chung
+                            } else if ("get_chat_history".equals(m.type)) {
+                                List<Message> history = dbManager.getChatHistory(50);
+                                sendToClient(this, Message.system("--- Public Chat History Reloaded ---"));
+                                for (Message chatMsg : history) {
+                                    sendToClient(this, chatMsg);
+                                }
                             }
                         }
                     } catch (JsonSyntaxException ignore) {}
