@@ -119,7 +119,7 @@ public class ServerView extends JFrame {
         broadcastBtn.setEnabled(isRunning);
         kickBtn.setEnabled(isRunning);
     }
-
+///
     // Cung cấp Dependency cho Controller
     public DatabaseManager getDatabaseManager() {
         return dbManager;
