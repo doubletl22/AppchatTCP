@@ -187,7 +187,7 @@ public class ClientController implements ClientStatusListener {
         if (text.endsWith(" joined the chat.")) viewModel.addUser(text.substring(0, text.indexOf(" joined")));
         else if (text.endsWith(" left the chat.")) viewModel.removeUser(text.substring(0, text.indexOf(" left")));
     }
-
+/// /
     @Override
     public void onUserListUpdate(List<String> userNames, String selfName) {
         viewModel.updateUsers(userNames);
