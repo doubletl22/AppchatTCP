@@ -124,7 +124,14 @@ public class DatabaseManager {
                 String sender = rs.getString("sender");
                 String text = rs.getString("text");
                 // Cập nhật: Sử dụng Message.history để xử lý marker [GIF]: nếu có
-                reversedHistory.add(Message.history(sender, text));
+                Message msg = Message.history(sender, text);
+
+                // [FIX] Đổi type thành chat_history để Client biết đây là lịch sử
+                if ("chat".equals(msg.type)) {
+                    msg.type = "chat_history";
+                }
+
+                reversedHistory.add(msg);
             }
 
             for (int i = reversedHistory.size() - 1; i >= 0; i--) {
@@ -160,7 +167,14 @@ public class DatabaseManager {
                     String sender = rs.getString("sender");
                     String message = rs.getString("message");
                     // Cập nhật: Sử dụng Message.directHistory để xử lý marker [GIF]: nếu có
-                    reversedHistory.add(0, Message.directHistory(sender, message, time));
+                    Message msg = Message.directHistory(sender, message, time);
+
+                    // [FIX] Đổi type thành dm_history để Client biết đây là lịch sử
+                    if ("dm".equals(msg.type)) {
+                        msg.type = "dm_history";
+                    }
+
+                    reversedHistory.add(0, msg);
                 }
                 history.addAll(reversedHistory);
             }

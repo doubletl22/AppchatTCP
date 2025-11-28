@@ -195,8 +195,14 @@ public class ClientController implements ClientStatusListener {
 
     @Override
     public void onMessageReceived(Message m) {
-        if (m.name.equals(viewModel.getUserName()) || m.name.startsWith("[TO ")) return;
+        // [FIX] Kiểm tra xem có phải tin nhắn lịch sử không (dựa trên type chứa chuỗi "history")
+        boolean isHistory = m.type != null && m.type.contains("history");
+
+        // Nếu KHÔNG phải lịch sử, và là tin nhắn của chính mình -> Return (để tránh hiển thị 2 lần)
+        // Nếu LÀ lịch sử -> Cho phép hiển thị, kể cả của chính mình
+        if (!isHistory && (m.name.equals(viewModel.getUserName()) || m.name.startsWith("[TO "))) {
+            return;
+        }
         viewModel.notifyMessageReceived(m);
     }
 }
-
