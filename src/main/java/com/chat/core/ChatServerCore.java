@@ -99,6 +99,12 @@ public class ChatServerCore extends Thread {
             dbManager.storeMessage(m.name, "[Hình ảnh]");
             logText = "[IMAGE] " + m.name + " sent an image.";
 
+        } else if ("sticker".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn Sticker công khai
+            // Lưu đường dẫn sticker vào DB với tiền tố [STICKER]:
+            dbManager.storeMessage(m.name, "[STICKER]:" + m.text);
+            logText = "[STICKER] " + m.name + ": " + m.text;
+
         } else if ("system".equals(m.type)) {
             logText = m.text;
         }
@@ -148,6 +154,12 @@ public class ChatServerCore extends Thread {
             logPrefix = "[DM IMAGE] ";
             msgTypeToTarget = "dm_image";
             msgTypeToSender = "dm_image";
+        } else if ("dm_sticker".equals(m.type)) {
+            // [MỚI] Xử lý tin nhắn sticker riêng tư
+            storedMessage = "[STICKER]:" + m.text;
+            logPrefix = "[DM STICKER] ";
+            msgTypeToTarget = "dm_sticker";
+            msgTypeToSender = "dm_sticker";
         }
 
         // Lưu vào DB
@@ -273,8 +285,8 @@ public class ChatServerCore extends Thread {
                     try {
                         Message m = gson.fromJson(l, Message.class);
                         if (m != null) {
-                            // 1. Xử lý Chat công khai (Text, GIF, Voice, Image)
-                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type) || "image".equals(m.type)) {
+                            // 1. Xử lý Chat công khai (Text, GIF, Voice, Image, Sticker)
+                            if ("chat".equals(m.type) || "gif".equals(m.type) || "voice".equals(m.type) || "image".equals(m.type) || "sticker".equals(m.type)) {
                                 Message outMsg = new Message();
                                 outMsg.type = m.type;
                                 outMsg.name = name;
@@ -282,8 +294,8 @@ public class ChatServerCore extends Thread {
                                 outMsg.data = m.data; // [QUAN TRỌNG] Copy dữ liệu voice/image
                                 broadcast(outMsg);
 
-                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice, DM Image)
-                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type) || "dm_image".equals(m.type))
+                                // 2. Xử lý Chat riêng tư (DM Text, DM GIF, DM Voice, DM Image, DM Sticker)
+                            } else if (("dm".equals(m.type) || "dm_gif".equals(m.type) || "dm_voice".equals(m.type) || "dm_image".equals(m.type) || "dm_sticker".equals(m.type))
                                     && m.targetName != null) {
                                 m.name = name;
                                 sendPrivateMessage(this, m);

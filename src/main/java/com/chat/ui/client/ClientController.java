@@ -72,7 +72,7 @@ public class ClientController implements ClientStatusListener {
         }
     }
 
-    // [MỚI] Hàm xử lý gửi Voice
+    // Hàm xử lý gửi Voice
     public void handleSendVoice(String base64Data) {
         if (!clientCore.isAuthenticated()) return;
         String recipient = viewModel.getCurrentRecipient();
@@ -100,7 +100,7 @@ public class ClientController implements ClientStatusListener {
         }
     }
 
-    // [MỚI] Hàm xử lý gửi Ảnh từ file
+    // Hàm xử lý gửi Ảnh từ file
     public void handleSendImage(File imageFile) {
         if (!clientCore.isAuthenticated()) return;
         String recipient = viewModel.getCurrentRecipient();
@@ -113,7 +113,7 @@ public class ClientController implements ClientStatusListener {
                 String base64 = com.chat.util.ImageUtils.encodeImageToBase64(imageFile);
                 if (base64 == null) return;
 
-                // Gửi qua mạng (Hàm này cần được thêm vào ChatClientCore)
+                // Gửi qua mạng
                 clientCore.sendImage(base64, recipient);
 
                 // Local Echo (Hiển thị ngay lập tức trên máy mình)
@@ -132,6 +132,36 @@ public class ClientController implements ClientStatusListener {
                 viewModel.notifyMessageReceived(Message.system("[ERROR Gửi Ảnh] " + ex.getMessage()));
             }
         }).start();
+    }
+
+    // [MỚI] Hàm xử lý gửi Sticker
+    public void handleSendSticker(String stickerPath) {
+        if (!clientCore.isAuthenticated()) return;
+        String recipient = viewModel.getCurrentRecipient();
+        String userName = viewModel.getUserName();
+
+        try {
+            // 1. Gửi qua mạng
+            clientCore.sendSticker(stickerPath, recipient);
+
+            // 2. Hiển thị ngay lập tức trên máy mình (Local Echo)
+            if ("Public Chat".equals(recipient)) {
+                // Tự tạo tin nhắn giả để hiển thị
+                Message m = Message.sticker(stickerPath, "Public Chat");
+                m.name = userName;
+                m.isSelf = true; // Đánh dấu là tin nhắn của mình
+                viewModel.notifyMessageReceived(m);
+            } else {
+                Message m = Message.sticker(stickerPath, recipient);
+                m.name = userName;
+                m.type = "dm_sticker"; // Đánh dấu là DM
+                m.isSelf = true;
+                viewModel.notifyMessageReceived(m);
+            }
+
+        } catch (IOException ex) {
+            viewModel.notifyMessageReceived(Message.system("[ERROR Gửi Sticker] " + ex.getMessage()));
+        }
     }
 
     public void requestHistory(String targetUser) {
@@ -212,9 +242,14 @@ public class ClientController implements ClientStatusListener {
             String senderName = m.name != null ? m.name : "Hệ thống";
             boolean isVoice = "voice".equals(m.type) || "dm_voice".equals(m.type);
             boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
+            boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type);
 
-            if ((isVoice || isImage) && !parentFrame.isFocused()) {
-                String msgType = isVoice ? "tin nhắn thoại" : "một hình ảnh";
+            if ((isVoice || isImage || isSticker) && !parentFrame.isFocused()) {
+                String msgType = "tin nhắn mới";
+                if (isVoice) msgType = "tin nhắn thoại";
+                else if (isImage) msgType = "một hình ảnh";
+                else if (isSticker) msgType = "một sticker";
+
                 JOptionPane.showMessageDialog(parentFrame, "Bạn có " + msgType + " mới từ " + senderName, "Tin nhắn mới", JOptionPane.INFORMATION_MESSAGE);
             }
         });

@@ -64,6 +64,16 @@ public class Message {
         return m;
     }
 
+    // [MỚI] Sticker Message for sending (Thêm mới cho tính năng Sticker)
+    public static Message sticker(String stickerPath, String recipient) {
+        Message m = new Message();
+        // Nếu chat chung thì type là "sticker", chat riêng là "dm_sticker"
+        m.type = "Public Chat".equals(recipient) ? "sticker" : "dm_sticker";
+        m.text = stickerPath; // Nội dung là đường dẫn file ảnh (VD: /stickers/Tuzki/1.png)
+        m.targetName = "Public Chat".equals(recipient) ? null : recipient;
+        return m;
+    }
+
     public static Message register(String username, String password) {
         Message m = new Message();
         m.type = "register";
