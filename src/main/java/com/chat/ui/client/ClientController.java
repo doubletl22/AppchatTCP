@@ -271,11 +271,18 @@ public class ClientController implements ClientStatusListener {
             boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
             boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type);
 
-            if ((isVoice || isImage || isSticker) && !parentFrame.isFocused()) {
-                String msgType = "tin nhắn mới";
+            // [ĐÃ SỬA] Thêm kiểm tra cho Text và GIF
+            boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type);
+            boolean isText = "chat".equals(m.type) || "dm".equals(m.type);
+
+            // Cập nhật điều kiện hiển thị
+            if ((isVoice || isImage || isSticker || isGif || isText) && !parentFrame.isFocused()) {
+                String msgType = "tin nhắn mới"; // Mặc định cho Text
+
                 if (isVoice) msgType = "tin nhắn thoại";
                 else if (isImage) msgType = "một hình ảnh";
                 else if (isSticker) msgType = "một sticker";
+                else if (isGif) msgType = "một hình động (GIF)";
 
                 JOptionPane.showMessageDialog(parentFrame, "Bạn có " + msgType + " mới từ " + senderName, "Tin nhắn mới", JOptionPane.INFORMATION_MESSAGE);
             }
