@@ -12,10 +12,16 @@ import java.util.function.Consumer;
 public class StickerPickerDialog extends JDialog {
     private final Consumer<String> onStickerSelected;
 
-    // [CẤU HÌNH] Danh sách tên các bộ Sticker (trùng tên thư mục trong resources/stickers)
-    // Dùng để dự phòng khi không quét được thư mục tự động
+    // [CẤU HÌNH] Danh sách tên các bộ Sticker (Phải trùng khớp tên thư mục)
     private static final String[] PACK_NAMES = {
-            "Tuzki", "QooBee Agap", "QooBee Agap 2", "dr_meep"
+            "Tuzki",
+            "QooBee Agap",
+            "QooBee Agap 2",
+            "dr_meep",
+            // [MỚI] Đã thêm các bộ sticker mới của bạn
+            "moistier",
+            "mememanhwastickers"
+            // Nếu còn bộ thứ 3, hãy điền tên nó vào đây (ví dụ: "TenBoThu3")
     };
 
     public StickerPickerDialog(JFrame parent, Consumer<String> onStickerSelected) {
@@ -23,7 +29,7 @@ public class StickerPickerDialog extends JDialog {
         this.onStickerSelected = onStickerSelected;
 
         setLayout(new BorderLayout());
-        setSize(600, 500); // Tăng kích thước một chút cho thoải mái
+        setSize(600, 500);
         setLocationRelativeTo(parent);
 
         JTabbedPane tabbedPane = new JTabbedPane();
@@ -37,7 +43,7 @@ public class StickerPickerDialog extends JDialog {
     private void loadStickerPacks(JTabbedPane tabbedPane) {
         boolean success = false;
 
-        // --- CÁCH 1: QUÉT TỰ ĐỘNG (Dùng cho môi trường IDE/File System) ---
+        // --- CÁCH 1: QUÉT TỰ ĐỘNG (Dùng cho môi trường IDE) ---
         try {
             URL url = getClass().getResource("/stickers");
             if (url != null && "file".equals(url.getProtocol())) {
@@ -48,8 +54,6 @@ public class StickerPickerDialog extends JDialog {
                     for (File pack : packs) {
                         JPanel gridPanel = createGridPanel();
                         int count = 0;
-
-                        // Quét file ảnh trong thư mục
                         File[] images = pack.listFiles((dir, name) -> isImageFile(name));
                         if (images != null) {
                             for (File img : images) {
@@ -58,7 +62,6 @@ public class StickerPickerDialog extends JDialog {
                                 count++;
                             }
                         }
-
                         if (count > 0) {
                             addTabWithScroll(tabbedPane, pack.getName(), gridPanel);
                         }
@@ -72,29 +75,33 @@ public class StickerPickerDialog extends JDialog {
 
         if (success) return;
 
-        // --- CÁCH 2: LOAD THỦ CÔNG (Dùng cho file .JAR và tên file phức tạp) ---
+        // --- CÁCH 2: LOAD THỦ CÔNG (Dùng cho file .JAR và tên file lạ) ---
         for (String packName : PACK_NAMES) {
             JPanel gridPanel = createGridPanel();
             int foundCount = 0;
 
-            // Quét số thứ tự từ 0 đến 100
-            for (int i = 0; i <= 100; i++) {
+            // Quét số thứ tự từ 0 đến 150 (Tăng lên để tìm được nhiều ảnh hơn)
+            for (int i = 0; i <= 150; i++) {
 
-                // 1. Thử tên chuẩn: 1.png, 2.jpg...
+                // 1. Tên chuẩn: 1.png, 2.jpg...
                 if (checkAndAdd(gridPanel, packName, i + ".png")) foundCount++;
                 else if (checkAndAdd(gridPanel, packName, i + ".jpg")) foundCount++;
                 else if (checkAndAdd(gridPanel, packName, i + ".gif")) foundCount++;
 
-                // 2. Thử tên có số 0 ở đầu: 01.png, 05.jpg...
+                // 2. Tên có số 0 ở đầu: 01.png, 05.jpg...
                 String zeroPad = String.format("%02d", i);
                 if (checkAndAdd(gridPanel, packName, zeroPad + ".png")) foundCount++;
                 else if (checkAndAdd(gridPanel, packName, zeroPad + ".jpg")) foundCount++;
 
-                    // 3. [QUAN TRỌNG] Hỗ trợ tên file kiểu Windows copy: "1 (1).png", "1 (2).png"...
+                    // 3. Tên kiểu Windows Duplicate: "1 (1).png", "1 (2).png"...
                 else if (checkAndAdd(gridPanel, packName, "1 (" + i + ").png")) foundCount++;
                 else if (checkAndAdd(gridPanel, packName, "1 (" + i + ").jpg")) foundCount++;
 
-                    // 4. Hỗ trợ đuôi lạ khác
+                    // 4. [MỚI] Tên kiểu tên thư mục + số: "moistier (42).png"
+                else if (checkAndAdd(gridPanel, packName, packName + " (" + i + ").png")) foundCount++;
+                else if (checkAndAdd(gridPanel, packName, packName + " (" + i + ").jpg")) foundCount++;
+
+                    // 5. Hỗ trợ đuôi lạ khác
                 else if (checkAndAdd(gridPanel, packName, i + ".jpeg")) foundCount++;
                 else if (checkAndAdd(gridPanel, packName, i + ".webp.png")) foundCount++;
             }
@@ -109,7 +116,6 @@ public class StickerPickerDialog extends JDialog {
         }
     }
 
-    // Helper: Thử thêm ảnh vào panel, trả về true nếu ảnh tồn tại
     private boolean checkAndAdd(JPanel panel, String packName, String fileName) {
         String path = "/stickers/" + packName + "/" + fileName;
         if (getClass().getResource(path) != null) {
@@ -120,7 +126,7 @@ public class StickerPickerDialog extends JDialog {
     }
 
     private JPanel createGridPanel() {
-        JPanel panel = new JPanel(new GridLayout(0, 5, 5, 5)); // 5 cột
+        JPanel panel = new JPanel(new GridLayout(0, 5, 5, 5));
         panel.setBackground(Color.WHITE);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
         return panel;
