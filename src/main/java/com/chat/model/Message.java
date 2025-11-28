@@ -13,7 +13,7 @@ public class Message {
     public List<String> users; // Dành cho userlist
     public boolean isSelf = false; // Dành cho hiển thị cục bộ (Local Echo)
 
-    // [MỚI] Trường chứa dữ liệu âm thanh (Base64 string) hoặc hình ảnh
+    // Trường chứa dữ liệu âm thanh (Base64 string) hoặc hình ảnh
     public String data;
 
     public Message() {}
@@ -44,7 +44,7 @@ public class Message {
         return m;
     }
 
-    // [MỚI] Voice Message for sending
+    // Voice Message for sending
     public static Message voice(String base64Data, String recipient) {
         Message m = new Message();
         m.type = "Public Chat".equals(recipient) ? "voice" : "dm_voice";
@@ -54,13 +54,23 @@ public class Message {
         return m;
     }
 
-    // [MỚI] Image Message for sending (Thêm mới cho tính năng gửi ảnh)
+    // Image Message for sending
     public static Message image(String base64Data, String recipient) {
         Message m = new Message();
         m.type = "Public Chat".equals(recipient) ? "image" : "dm_image";
         m.targetName = "Public Chat".equals(recipient) ? null : recipient;
         m.data = base64Data;
         m.text = "[Hình ảnh]"; // Nội dung hiển thị thay thế
+        return m;
+    }
+
+    // Sticker Message for sending
+    public static Message sticker(String stickerPath, String recipient) {
+        Message m = new Message();
+        // Nếu chat chung thì type là "sticker", chat riêng là "dm_sticker"
+        m.type = "Public Chat".equals(recipient) ? "sticker" : "dm_sticker";
+        m.text = stickerPath; // Nội dung là đường dẫn file ảnh (VD: /stickers/Tuzki/1.png)
+        m.targetName = "Public Chat".equals(recipient) ? null : recipient;
         return m;
     }
 
@@ -84,6 +94,13 @@ public class Message {
         Message m = new Message();
         m.type = "get_dm_history";
         m.targetName = targetUser;
+        return m;
+    }
+
+    // [MỚI] Yêu cầu tải lại lịch sử Chat Chung
+    public static Message getChatHistory() {
+        Message m = new Message();
+        m.type = "get_chat_history";
         return m;
     }
 
@@ -117,34 +134,49 @@ public class Message {
         return m;
     }
 
-    // Public History
+    // Public History (Cập nhật xử lý Sticker cũ)
     public static Message history(String name, String text) {
         Message m = new Message();
         m.type = "history";
 
-        // Handle history items that might be GIFs
-        if (text != null && text.startsWith("[GIF]:")) {
-            m.type = "gif_history";
-            m.text = text.substring("[GIF]:".length()).trim();
-        } else {
-            m.text = text;
+        if (text != null) {
+            if (text.startsWith("[GIF]:")) {
+                m.type = "gif_history";
+                m.text = text.substring("[GIF]:".length()).trim();
+            }
+            // [QUAN TRỌNG] Nhận diện lịch sử Sticker
+            else if (text.startsWith("[STICKER]:")) {
+                m.type = "sticker_history";
+                m.text = text.substring("[STICKER]:".length()).trim();
+            }
+            else {
+                m.text = text;
+            }
         }
 
         m.name = name;
         return m;
     }
 
+    // DM History (Cập nhật xử lý Sticker cũ)
     public static Message directHistory(String sender, String text, String timestamp) {
         Message m = new Message();
         m.type = "dm_history";
         m.name = sender;
 
-        // Handle DM history items that might be GIFs
-        if (text != null && text.startsWith("[GIF]:")) {
-            m.type = "dm_gif_history";
-            m.text = text.substring("[GIF]:".length()).trim();
-        } else {
-            m.text = text;
+        if (text != null) {
+            if (text.startsWith("[GIF]:")) {
+                m.type = "dm_gif_history";
+                m.text = text.substring("[GIF]:".length()).trim();
+            }
+            // [QUAN TRỌNG] Nhận diện lịch sử DM Sticker
+            else if (text.startsWith("[STICKER]:")) {
+                m.type = "dm_sticker_history";
+                m.text = text.substring("[STICKER]:".length()).trim();
+            }
+            else {
+                m.text = text;
+            }
         }
 
         m.time = timestamp;
