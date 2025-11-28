@@ -33,7 +33,7 @@ public class ClientController implements ClientStatusListener {
             // Mở Dialog với chế độ hiện tại
             LoginDialog dialog = new LoginDialog(parentFrame, isRegisterMode);
             dialog.setVisible(true);
-
+            //
             // Nếu người dùng tắt bảng (bấm X) -> Thoát luôn
             if (dialog.isCancelled()) return;
 
