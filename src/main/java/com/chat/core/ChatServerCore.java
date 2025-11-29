@@ -5,6 +5,7 @@ import com.chat.service.DatabaseManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
+import javax.net.ssl.SSLServerSocketFactory;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -33,11 +34,19 @@ public class ChatServerCore extends Thread {
     public boolean isRunning() { return running; }
 
     public void startServer() throws IOException {
-        if (running) return;
-        serverSocket = new ServerSocket(port);
+        try {
+            // Lấy SSL Factory mặc định. Yêu cầu cấu hình Keystore qua System Properties.
+            SSLServerSocketFactory sslFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+            serverSocket = sslFactory.createServerSocket(port); // Tạo SSL Server Socket
+        } catch (Exception e) {
+            logListener.log("Lỗi SSL Server: " + e.getMessage());
+            throw new IOException("Không thể khởi tạo SSL Server. Hãy kiểm tra cấu hình Keystore.", e);
+        }
+        // --- Kết thúc phần triển khai SSL/TLS ---
+
         running = true;
-        logListener.log("Server started on port " + port + ". Ready for authentication.");
-        this.start(); // Bắt đầu luồng chấp nhận kết nối
+        logListener.log("Server started securely (SSL/TLS) on port " + port + ". Ready for authentication."); // Cập nhật log
+        this.start();
     }
 
     public void stopServer() {

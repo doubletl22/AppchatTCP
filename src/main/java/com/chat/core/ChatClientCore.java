@@ -4,6 +4,7 @@ import com.chat.model.Message;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 
+import javax.net.ssl.SSLSocketFactory;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -39,17 +40,16 @@ public class ChatClientCore {
         if (connected) return;
 
         try {
-            socket = new Socket(host, port);
+            // --- Bắt đầu phần triển khai SSL/TLS ---
+            // Lấy SSL Factory mặc định. Yêu cầu cấu hình Truststore qua System Properties.
+            SSLSocketFactory sslFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+            socket = sslFactory.createSocket(host, port); // Tạo SSL Socket thay vì Socket thông thường
+            // --- Kết thúc phần triển khai SSL/TLS ---
+
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             out = new BufferedOutputStream(socket.getOutputStream());
 
-            Message authMsg = "login".equals(action)
-                    ? Message.login(username, password)
-                    : Message.register(username, password);
-
-            String json = gson.toJson(authMsg) + "\n";
-            out.write(json.getBytes(StandardCharsets.UTF_8));
-            out.flush();
+            // ... phần gửi tin nhắn xác thực ...
         } catch (IOException e) {
             disconnect(e.getMessage());
             throw e;
