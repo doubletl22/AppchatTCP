@@ -4,7 +4,7 @@ import com.chat.model.ClientViewModel;
 import com.chat.model.Message;
 import com.chat.ui.client.ClientController;
 import com.chat.ui.client.dialog.GifPickerDialog;
-import com.chat.ui.client.dialog.StickerPickerDialog; // [MỚI] Thêm import này
+import com.chat.ui.client.dialog.StickerPickerDialog;
 import com.chat.util.AudioUtils;
 import com.chat.util.UiUtils;
 
@@ -18,7 +18,6 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.net.URL;
 import java.util.Base64;
 import java.util.Random;
@@ -96,8 +95,6 @@ public class ClientChatPanel extends JPanel {
 
         imageBtn.addActionListener(e -> chooseAndSendImage());
         gifBtn.addActionListener(e -> showGifPicker());
-
-        // [FIX] Khôi phục sự kiện mở bảng chọn Sticker
         stickerBtn.addActionListener(e -> showStickerPicker());
 
         gbc.gridx = 0; bottomInput.add(micBtn, gbc);
@@ -108,8 +105,10 @@ public class ClientChatPanel extends JPanel {
         // --- B. Ô NHẬP LIỆU (VIÊN THUỐC) ---
         inputField.setAction(sendAction);
         inputField.putClientProperty("JTextField.placeholderText", "Nhập tin nhắn...");
-        // [QUAN TRỌNG] Font Segoe UI Emoji để hiện mặt cười có màu trên Windows
-        inputField.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+
+        // [FIX] Sử dụng Segoe UI để hiển thị Tiếng Việt tốt nhất trên Windows
+        // Hệ thống sẽ tự động tìm font Emoji dự phòng khi cần thiết.
+        inputField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         inputField.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 10));
 
         setupIconButton(emojiBtn, new EmojiIcon(20, UiUtils.TEAL_COLOR));
@@ -143,7 +142,6 @@ public class ClientChatPanel extends JPanel {
     private void updateInputStyle() {
         inputField.setForeground(UIManager.getColor("TextField.foreground"));
         inputField.setCaretColor(UIManager.getColor("TextField.caretForeground"));
-        // Màu nền được xử lý tự động trong class RoundedTextField
     }
 
     private void setupIconButton(JButton btn, Icon icon) {
@@ -156,7 +154,7 @@ public class ClientChatPanel extends JPanel {
         btn.setMargin(new Insets(0,0,0,0));
     }
 
-    // --- LOGIC HIỂN THỊ TIN NHẮN (ĐÃ NÂNG CẤP) ---
+    // --- LOGIC HIỂN THỊ TIN NHẮN ---
 
     public void appendMessage(Message m, String currentUserName) {
         // Xác định tin nhắn của ai
@@ -168,7 +166,6 @@ public class ClientChatPanel extends JPanel {
         boolean isGif = "gif".equals(m.type) || "dm_gif".equals(m.type) ||
                 "gif_history".equals(m.type) || "dm_gif_history".equals(m.type);
         boolean isImage = "image".equals(m.type) || "dm_image".equals(m.type);
-        // [MỚI] Nhận diện tin nhắn Sticker
         boolean isSticker = "sticker".equals(m.type) || "dm_sticker".equals(m.type) ||
                 "sticker_history".equals(m.type) || "dm_sticker_history".equals(m.type);
 
@@ -180,18 +177,15 @@ public class ClientChatPanel extends JPanel {
             } else {
                 JPanel messageBubble;
 
-                // Chọn loại bong bóng chat phù hợp
                 if (isVoice) messageBubble = createVoiceBubble(m.data, isSelf);
                 else if (isGif) messageBubble = createGifBubble(m.text, isSelf);
                 else if (isImage) messageBubble = createImageBubble(m.data, isSelf);
-                else if (isSticker) messageBubble = createStickerBubble(m.text, isSelf); // [MỚI] Xử lý hiển thị Sticker
+                else if (isSticker) messageBubble = createStickerBubble(m.text, isSelf);
                 else messageBubble = createChatBubble(m.text, isSelf);
 
-                // Container bao ngoài để hiển thị tên người gửi (nếu cần)
                 JPanel wrapper = new JPanel(new BorderLayout());
                 wrapper.setOpaque(false);
 
-                // Chỉ hiện tên nếu không phải là tin nhắn của mình và không phải chat riêng (DM)
                 if (!isSelf && m.name != null && !m.name.equals("Public Chat") && !m.name.startsWith("[TO ")) {
                     JLabel nameLabel = new JLabel(m.name);
                     nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -215,7 +209,7 @@ public class ClientChatPanel extends JPanel {
         });
     }
 
-    // 1. Bong bóng Chat Văn Bản (Bo tròn + Emoji màu)
+    // 1. Bong bóng Chat Văn Bản
     private JPanel createChatBubble(String text, boolean isSelf) {
         BubblePanel bubble = new BubblePanel(isSelf);
         bubble.setLayout(new BorderLayout());
@@ -224,11 +218,10 @@ public class ClientChatPanel extends JPanel {
         textPane.setText(text);
         textPane.setEditable(false);
         textPane.setOpaque(false);
-        // Font này hỗ trợ emoji màu trên Windows 10/11
-        textPane.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        // [FIX] Sử dụng Segoe UI để hiển thị tốt Tiếng Việt
+        textPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         textPane.setForeground(isSelf ? Color.WHITE : Color.BLACK);
 
-        // Tính toán kích thước tự động
         int width = Math.min(400, getFontMetrics(textPane.getFont()).stringWidth(text) + 30);
         textPane.setPreferredSize(new Dimension(width, textPane.getPreferredSize().height));
 
@@ -236,13 +229,12 @@ public class ClientChatPanel extends JPanel {
         return bubble;
     }
 
-    // 2. Bong bóng Voice (Style Messenger: Viên thuốc + Nút Play + Sóng âm)
+    // 2. Bong bóng Voice
     private JPanel createVoiceBubble(String base64Audio, boolean isSelf) {
         BubblePanel bubble = new BubblePanel(isSelf);
         bubble.setLayout(new BorderLayout(10, 0));
-        bubble.setPreferredSize(new Dimension(220, 45)); // Kích thước cố định
+        bubble.setPreferredSize(new Dimension(220, 45));
 
-        // Nút Play
         JButton playBtn = new JButton("▶");
         playBtn.setFont(new Font("Segoe UI Symbol", Font.BOLD, 14));
         playBtn.setForeground(isSelf ? UiUtils.TEAL_COLOR : Color.WHITE);
@@ -251,7 +243,6 @@ public class ClientChatPanel extends JPanel {
         playBtn.setFocusPainted(false);
         playBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Vẽ vòng tròn nền nút play
         JPanel btnWrapper = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -270,7 +261,6 @@ public class ClientChatPanel extends JPanel {
             if (base64Audio != null) AudioUtils.playBase64Audio(base64Audio);
         });
 
-        // Vẽ sóng âm (Giả lập cho đẹp)
         JPanel waveForm = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -295,7 +285,7 @@ public class ClientChatPanel extends JPanel {
         return bubble;
     }
 
-    // 3. Bong bóng Ảnh (Load ảnh thật từ Base64)
+    // 3. Bong bóng Ảnh
     private JPanel createImageBubble(String base64, boolean isSelf) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
@@ -310,7 +300,6 @@ public class ClientChatPanel extends JPanel {
                 byte[] btDataFile = Base64.getDecoder().decode(base64);
                 BufferedImage rawImage = ImageIO.read(new ByteArrayInputStream(btDataFile));
                 if (rawImage != null) {
-                    // Resize ảnh cho vừa khung chat
                     int maxWidth = 250;
                     int w = rawImage.getWidth();
                     int h = rawImage.getHeight();
@@ -337,7 +326,7 @@ public class ClientChatPanel extends JPanel {
         return panel;
     }
 
-    // 4. Bong bóng GIF (Load từ URL)
+    // 4. Bong bóng GIF
     private JPanel createGifBubble(String urlStr, boolean isSelf) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
@@ -362,22 +351,19 @@ public class ClientChatPanel extends JPanel {
         return panel;
     }
 
-    // 5. [MỚI] Bong bóng Sticker (Load từ Resource)
+    // 5. Bong bóng Sticker
     private JPanel createStickerBubble(String stickerPath, boolean isSelf) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        // Kích thước mặc định của sticker hiển thị trên chat
         int displaySize = 120;
 
         JLabel stickerLabel = new JLabel();
         stickerLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        // Load sticker từ resource path
         try {
             URL url = getClass().getResource(stickerPath);
             if (url != null) {
                 ImageIcon icon = new ImageIcon(url);
-                // Resize sticker
                 Image img = icon.getImage().getScaledInstance(displaySize, displaySize, Image.SCALE_SMOOTH);
                 stickerLabel.setIcon(new ImageIcon(img));
             } else {
@@ -393,7 +379,6 @@ public class ClientChatPanel extends JPanel {
 
     // --- CÁC COMPONENT TÙY CHỈNH ---
 
-    // Panel vẽ bong bóng chat bo tròn (Rounded)
     private static class BubblePanel extends JPanel {
         private final boolean isSelf;
         public BubblePanel(boolean isSelf) {
@@ -407,14 +392,12 @@ public class ClientChatPanel extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             if (isSelf) g2.setColor(UiUtils.TEAL_COLOR);
             else g2.setColor(new Color(230, 230, 230));
-            // Bo tròn 20px
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    // Ô nhập liệu hình viên thuốc (Rounded TextField)
     private static class RoundedTextField extends JTextField {
         private final int radius;
         public RoundedTextField(int radius) { this.radius = radius; setOpaque(false); }
@@ -423,11 +406,10 @@ public class ClientChatPanel extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Color bgColor = UIManager.getColor("TextField.background");
-            // Fix nền trắng cho Light Mode
             if (getParent() != null && getParent().getBackground().getRed() > 200) bgColor = new Color(240, 242, 245);
             g2.setColor(bgColor);
             g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, radius, radius);
-            g2.setColor(new Color(200, 200, 200)); // Viền xám nhạt
+            g2.setColor(new Color(200, 200, 200));
             g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, radius, radius);
             g2.dispose();
             super.paintComponent(g);
@@ -467,12 +449,10 @@ public class ClientChatPanel extends JPanel {
     private void chooseAndSendImage() { JFileChooser fc = new JFileChooser(); fc.setDialogTitle("Chọn ảnh"); fc.setFileFilter(new FileNameExtensionFilter("Ảnh", "jpg", "png", "gif")); if(fc.showOpenDialog(this)==JFileChooser.APPROVE_OPTION && controller!=null) controller.handleSendImage(fc.getSelectedFile()); }
     private void showGifPicker() { JFrame f=(JFrame)SwingUtilities.getWindowAncestor(this); new GifPickerDialog(f, url -> { inputField.setText("/gif "+url); if(controller!=null) controller.handleSend(inputField.getText()); clearInputField(); }).setVisible(true); }
 
-    // [FIX] Hàm mở bảng chọn Sticker và gọi Controller
     private void showStickerPicker() {
         JFrame f = (JFrame) SwingUtilities.getWindowAncestor(this);
         new StickerPickerDialog(f, stickerPath -> {
             if (controller != null) {
-                // Đảm bảo bạn đã thêm hàm này vào ClientController.java
                 controller.handleSendSticker(stickerPath);
             }
         }).setVisible(true);
@@ -484,7 +464,7 @@ public class ClientChatPanel extends JPanel {
         JPanel panel = new JPanel(new GridLayout(2, 5, 5, 5)); panel.setOpaque(false);
         for (String emoji : emojis) {
             JButton btn = new JButton(emoji);
-            btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24)); // Font màu cho popup
+            btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
             btn.setBorderPainted(false); btn.setContentAreaFilled(false);
             btn.addActionListener(e -> { inputField.replaceSelection(emoji); popup.setVisible(false); });
             panel.add(btn);
@@ -492,7 +472,6 @@ public class ClientChatPanel extends JPanel {
         popup.add(panel); popup.show(invoker, 0, -100);
     }
 
-    // --- ICON CLASSES (Vector Icons) ---
     private static class MicIcon implements Icon {
         private final int size; private final Color color;
         public MicIcon(int size, Color color) { this.size = size; this.color = color; }
