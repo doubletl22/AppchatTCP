@@ -10,6 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+//heaklsdjalskjaosfh
+
 public class ChatClientCore {
     private volatile boolean connected = false;
     private volatile boolean authenticated = false;
