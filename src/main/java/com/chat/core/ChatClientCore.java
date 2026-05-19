@@ -11,7 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 //heaklsdjalskjaosfh
-
+//laihfklajshdfkjlsdhf
+//kljashfkljasgfb
 public class ChatClientCore {
     private volatile boolean connected = false;
     private volatile boolean authenticated = false;
